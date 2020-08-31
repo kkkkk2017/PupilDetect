@@ -20,19 +20,19 @@ global input_queue
 input_queue = Queue.Queue()
 
 def write_to_csv():
-    f = open('task_' + task_num + '.csv', 'w')
+    f = open('task_' + str(task_num) + '.csv', 'w')
     with f:
         writer = csv.writer(f)
         if tasks:
-            writer.writerow(['time, left_pupil, right_pupil, blink_count'])
+            writer.writerow(['time', 'left_pupil', 'right_pupil', 'mean', 'blink_count'])
             for t in tasks:
-                writer.writerow(list(t))
+                writer.writerow([i for i in t.toList()])
             print('csv done.')
 
 
 def receive_data(data, append_data):
     print('REV--->')
-    data = pickle.loads(data[2:])
+    data = pickle.loads(data[3:])
     data.toString()
     if append_data:
         tasks.append(data)
@@ -55,8 +55,8 @@ def foobar(conn, task_num):
     input_thread.start()
 
     append_data = False
-
-    while True:
+    terminate = False
+    while not terminate:
         last_update = time.time()
         while True:
             if time.time() - last_update > 0.5:
@@ -78,9 +78,15 @@ def foobar(conn, task_num):
                     end_t.append(time.time())
                     print(end_t)
                     write_to_csv()
+                    global tasks
                     tasks = []
                     append_data = False
 
+                elif msg == 't':
+                    conn.close()
+                    print('close connection')
+                    terminate = True
+                    break
                 print(msg)
 
         # if data:
@@ -110,6 +116,3 @@ while True:
     conn, addr = s.accept()
     print('connection established ', addr)
     foobar(conn, task_num)
-
-    conn.close()
-    print('connection close')
