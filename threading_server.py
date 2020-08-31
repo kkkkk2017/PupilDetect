@@ -5,7 +5,7 @@ import threading
 import sys
 import Queue
 import time
-import csv
+import multiprocessing
 
 OK = b'ok'
 
@@ -17,23 +17,14 @@ tasks = []
 start_t = []
 end_t = []
 global input_queue
-input_queue = Queue.Queue()
-
-def write_to_csv():
-    f = open('task_' + task_num + '.csv', 'w')
-    with f:
-        writer = csv.writer(f)
-        if tasks:
-            writer.writerow(['time, left_pupil, right_pupil, blink_count'])
-            for t in tasks:
-                writer.writerow(list(t))
-            print('csv done.')
-
+global send_queue
+input_queue = multiprocessing.Queue()
+send_queue = multiprocessing.Queue()
 
 def receive_data(data, append_data):
-    print('REV--->')
-    data = pickle.loads(data[2:])
-    data.toString()
+    print('REV--->', data)
+    # data = pickle.loads(data[2:])
+    # data.toString()
     if append_data:
         tasks.append(data)
         print('append')
@@ -41,14 +32,13 @@ def receive_data(data, append_data):
     else:
         print('not append')
 
-
 def add_input(input_queue):
     while True:
         msg = sys.stdin.read(1)
         input_queue.put(msg)
 
 
-def foobar(conn, task_num):
+def foobar(conn):
     print('create send_message thread')
     input_thread = threading.Thread(target=add_input, args=(input_queue,))
     input_thread.daemon = True
@@ -62,37 +52,23 @@ def foobar(conn, task_num):
             if time.time() - last_update > 0.5:
                 data = conn.recv(1024)
                 if data:
-                    if data.__contains__(b'[D]'):
-                        receive_data(data, append_data)
+                    receive_data(data, append_data)
                 last_update = time.time()
 
             if not input_queue.empty():
                 msg = input_queue.get()[:-1]
                 if msg == 's':
                     start_t.append(time.time())
-                    task_num+=1
-                    print(start_t)
+                    print(start_t[-1])
                     append_data = True
 
                 elif msg == 'e':
                     end_t.append(time.time())
-                    print(end_t)
-                    write_to_csv()
+                    print(end_t[-1])
                     tasks = []
                     append_data = False
 
                 print(msg)
-
-        # if data:
-        #     print('RECEIVE <----', data)
-        #     if data.__contains__(b'[D]'):
-        #         receive_data(data)
-        #         conn.send(OK)
-        #         continue
-        #
-        #     elif data == b'close':
-        #         print('Client exit')
-        #         break
 
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -104,12 +80,11 @@ except socket.error as err:
     print(err)
 
 s.listen(1)
-task_num = 0
 
 while True:
     conn, addr = s.accept()
     print('connection established ', addr)
-    foobar(conn, task_num)
+    foobar(conn)
 
     conn.close()
     print('connection close')

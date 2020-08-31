@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import time
 from Task import Task
+import Queue
 
 # socket
 HOST = 'localhost'
@@ -77,6 +78,11 @@ class Client:
         return None, None, None
 
 
+def send_data(server, msg_queue):
+    while True:
+        msg = server.recv(20)
+        msg
+
 if __name__ == '__main__':
     ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -84,6 +90,8 @@ if __name__ == '__main__':
         conn = ServerSocket.connect((HOST, PORT))
     except socket.error as err:
         print(err)
+
+    msg_queue = Queue.Queue()
 
     while True:
         cap = cv2.VideoCapture(0)
@@ -121,3 +129,4 @@ if __name__ == '__main__':
                         print('create new process', comm_p)
                         comm_p.start()
                         comm_p.join()
+
