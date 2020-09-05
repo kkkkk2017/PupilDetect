@@ -7,6 +7,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import csv
 
 PUPIL_MIN = 15
 
@@ -36,6 +37,16 @@ class Eye_Detector:
         self.re_keypoints = None
         self.left_d = 0.0
         self.right_d = 0.0
+
+    def write_to_csv(self):
+        f = open('trial_pupil' + '.csv', 'w')
+        with f:
+            writer = csv.writer(f)
+
+            writer.writerow(['left_pupil', 'right_pupil', 'mean'])
+            for i in range(len(left_pupil_data)):
+                writer.writerow([left_pupil_data[i], right_pupil_data[i], mean[i]])
+            print('csv done.' + f.name)
 
     def extract_eye(self, frame, shape, start, end):
         (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
@@ -89,13 +100,13 @@ class Eye_Detector:
 
     def run(self):
         current = -1
-        fig, ax = plt.subplots()
-        legend_element = [mpatches.Patch(color='blue', label='Left pupil', linestyle='-', linewidth=0.5),
-                          mpatches.Patch(color='green', label='Right pupil', linestyle='-', linewidth=0.5),
-                          mpatches.Patch(color='red', label='Mean', linestyle='--', linewidth=0.5)]
-        ax.legend(handles=legend_element, loc='upper_left')
-        ax.set_ylim(bottom=0, top=15)
-        ax.set_title('Pupil Dilation')
+        # fig, ax = plt.subplots()
+        # legend_element = [mpatches.Patch(color='blue', label='Left pupil', linestyle='-', linewidth=0.5),
+        #                   mpatches.Patch(color='green', label='Right pupil', linestyle='-', linewidth=0.5),
+        #                   mpatches.Patch(color='red', label='Mean', linestyle='--', linewidth=0.5)]
+        # ax.legend(handles=legend_element, loc='upper_left')
+        # ax.set_ylim(bottom=0, top=15)
+        # ax.set_title('Pupil Dilation')
 
         cap = cv2.VideoCapture(0)
         start_t = time.time()
@@ -133,10 +144,10 @@ class Eye_Detector:
                         current += 1
 
                         # draw graph
-                        ax.scatter([current], [ld], color='green')
-                        ax.scatter([current], [rd], color='blue')
-                        ax.scatter([current], [m], color='red')
-                        fig.canvas.draw()
+                        # ax.scatter([current], [ld], color='green')
+                        # ax.scatter([current], [rd], color='blue')
+                        # ax.scatter([current], [m], color='red')
+                        # fig.canvas.draw()
 
                 # detecting blink
                 leftEye = shape[lStart: lEnd]
@@ -156,15 +167,16 @@ class Eye_Detector:
                 self.show_text(frame, ear, start_t)
                 # draw graph
 
-            ax.plot([i for i in range(len(left_pupil_data))], left_pupil_data, '-g')
-            ax.plot([i for i in range(len(right_pupil_data))], right_pupil_data, '-b')
-            ax.plot([i for i in range(len(mean))], mean, '--r', )
+            # ax.plot([i for i in range(len(left_pupil_data))], left_pupil_data, '-g')
+            # ax.plot([i for i in range(len(right_pupil_data))], right_pupil_data, '-b')
+            # ax.plot([i for i in range(len(mean))], mean, '--r', )
 
-            fig.show()
+            # fig.show()
             cv2.imshow('Frame', frame)
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord('q'):
+                self.write_to_csv()
                 break
 
         cap.release()
