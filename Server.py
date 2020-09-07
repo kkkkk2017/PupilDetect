@@ -122,7 +122,7 @@ def run(conn, task_num):
                     error = True
                     print('made error')
 
-                elif msg == 'n': #next task
+                elif msg == 'n': # next task
                     end_t.append(time.time())
                     print(end_t)
                     write_to_csv(task_num)
