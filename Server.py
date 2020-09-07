@@ -25,17 +25,19 @@ def write_to_csv(task_num):
     with f:
         writer = csv.writer(f)
         if tasks:
-            writer.writerow(['time', 'left_pupil', 'right_pupil', 'mean', 'blink_count'])
+            writer.writerow(['time', 'left_pupil', 'right_pupil', 'mean', 'blink_count', 'error'])
             for t in tasks:
                 writer.writerow([i for i in t.toList()])
             print('csv done.' + f.name)
 
 
-def receive_data(data, append_data, fig, ax, index):
+def receive_data(data, append_data, fig, ax, index, error):
     print('REV--->')
     data = pickle.loads(data[3:])
     data.toString()
     if append_data:
+        if error:
+            data.error = 1
         tasks.append(data)
         print('append')
         print(tasks)
@@ -91,6 +93,7 @@ def run(conn, task_num):
 
     append_data = False
     terminate = False
+    error = False
 
     fig, ax = create_fig()
     index = 0
@@ -102,8 +105,9 @@ def run(conn, task_num):
                 data = conn.recv(1024)
                 if data:
                     if data.__contains__(b'[D]'):
-                        fig, ax, index = receive_data(data, append_data, fig, ax, index)
+                        fig, ax, index = receive_data(data, append_data, fig, ax, index, error)
                         last_update = time.time()
+                        error = False
 
             if not input_queue.empty():
                 msg = input_queue.get()[:-1]
@@ -112,8 +116,13 @@ def run(conn, task_num):
                     task_num+=1
                     print(start_t)
                     append_data = True
+                    error = False
 
                 elif msg == 'e':
+                    error = True
+                    print('made error')
+
+                elif msg == 'n': #next task
                     end_t.append(time.time())
                     print(end_t)
                     write_to_csv(task_num)

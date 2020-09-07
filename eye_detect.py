@@ -61,6 +61,7 @@ class Eye_Detector:
         dilate = cv2.dilate(erode, None, iterations=5)
         blur = cv2.medianBlur(dilate, 5)
         keypoints = self.blob_detector.detect(blur)
+
         return keypoints
 
     def blob_process_both_eyes(self, left_eye, right_eye, start_thres):
@@ -126,6 +127,7 @@ class Eye_Detector:
                 right = self.extract_eye(frame, shape, rStart, rEnd)
                 # detect pupil
                 trial_thres, le_keypoints, re_keypoints = self.blob_process_both_eyes(left, right, threshold)
+
                 if trial_thres != None:
                     threshold = trial_thres
                 # print('thres', threshold)
@@ -142,12 +144,6 @@ class Eye_Detector:
                         right_pupil_data.append(rd)
                         mean.append(m)
                         current += 1
-
-                        # draw graph
-                        # ax.scatter([current], [ld], color='green')
-                        # ax.scatter([current], [rd], color='blue')
-                        # ax.scatter([current], [m], color='red')
-                        # fig.canvas.draw()
 
                 # detecting blink
                 leftEye = shape[lStart: lEnd]

@@ -3,6 +3,7 @@ import imutils
 import dlib
 import cv2
 import numpy as np
+import time
 
 
 file = 'Resources/face_landmarks.dat'
@@ -11,7 +12,8 @@ predictor = dlib.shape_predictor(file)
 
 detector_params = cv2.SimpleBlobDetector_Params()
 detector_params.filterByArea = True
-detector_params.maxArea = 1500
+detector_params.minArea = 12
+detector_params.maxArea = 50
 blob_detector = cv2.SimpleBlobDetector_create(detector_params)
 
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
@@ -23,32 +25,63 @@ def extract_eye(shape, start, end):
     roi = frame[y:y + h, x:x + w]
     return roi
 
-
 def get_keypoints(image, detector, threshold):
-    image = imutils.resize(image, width=250, inter=cv2.INTER_CUBIC)
-    _, image = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
-    erode = cv2.erode(image, None, iterations=2)
-    dilate = cv2.dilate(erode, None, iterations=4)
-    blur = cv2.medianBlur(dilate, 5)
-    stack = np.hstack((image, erode, dilate, blur))
-    cv2.imshow('stack', stack)
-    keypoints = detector.detect(blur)
-    return keypoints
+        image = imutils.resize(image, width=50, inter=cv2.INTER_CUBIC)
+        image = cv2.GaussianBlur(image, (3,3), 1)
+        _, thres = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+        # dilate = cv2.dilate(thres, (2, 2), iterations=1)
+        # erode = cv2.erode(dilate, (1, 1), iterations=1)
 
+        # _, contours, _ = cv2.findContours(erode, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # if contours:
+        #     contours = sorted(contours, key=lambda x: cv2.contourArea(x))
+        #
+        # for cnt in contours:
+        #     cv2.drawContours(image, [cnt], -1, (0,0,255), 1)
+        #     print(cv2.contourArea(cnt))
+
+        blur = cv2.medianBlur(thres, 1)
+        keypoints = detector.detect(blur)
+
+        if keypoints:
+            print('FOUND', threshold, keypoints[0].size)
+            image_k = cv2.drawKeypoints(image, keypoints, image, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            cv2.imshow('image', image_k)
+            return keypoints[0].size
+
+        stack = np.hstack((image, thres, blur))
+        cv2.imshow('stack', stack)
+        return None
+
+def blob_process(eye, detector):
+    gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
+    optimal = []
+
+    for thres in range(0, 130):  # 0 - 255
+        area = get_keypoints(gray, detector, thres)
+        if area:
+            optimal.append((thres, area))
+            pass
+        if area is None and len(optimal) > 0:
+            break
+    if len(optimal) > 0:
+        optimal = sorted(optimal, key=lambda x: x[1], reverse=True)
+        print('optimal', optimal)
+        return optimal[0]
+    return None
 
 def blob_process_both_eyes(left_eye, right_eye, detector):
-    left_gray = cv2.cvtColor(left_eye, cv2.COLOR_BGR2GRAY)
-    right_gray = cv2.cvtColor(right_eye, cv2.COLOR_BGR2GRAY)
+    left_optimal = blob_process(left_eye, detector)
+    right_optimal = blob_process(right_eye, detector)
 
-    for thres in range(0, 160):  # 0 - 255
-        left_keypoints = get_keypoints(left_gray, detector, thres)
-        right_keypoints = get_keypoints(right_gray, detector, thres)
-        if len(left_keypoints) > 0 and len(right_keypoints) > 0:
-            return thres, left_keypoints, right_keypoints
-    return thres, None, None
+    if left_optimal and right_optimal:
+        print('left', left_optimal, 'right', right_optimal)
+        return left_optimal, right_optimal
 
+    return None, None
 
 frame = cv2.imread('test.jpg')
+frame = imutils.resize(frame, width=500, height=500, inter=cv2.INTER_CUBIC)
 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
 while True:
@@ -60,27 +93,9 @@ while True:
         left = extract_eye(shape, lStart, lEnd)
         right = extract_eye(shape, rStart, rEnd)
 
-        le_keypoints = None
-        re_keypoints = None
+        result_left, result_right = blob_process_both_eyes(left, right, blob_detector)
 
-        thres, le_keypoints, re_keypoints = blob_process_both_eyes(left, right, blob_detector)
-
-        if le_keypoints and re_keypoints:
-            left_d = le_keypoints[0].size
-            right_d = re_keypoints[0].size
-            # cv2.drawKeypoints(left, le_keypoints, left, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            # cv2.drawKeypoints(right, re_keypoints, right, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-        leftEye = shape[lStart: lEnd]
-        rightEye = shape[rStart: rEnd]
-
-        leftEyeHull = cv2.convexHull(leftEye)
-        rightEyeHull = cv2.convexHull(rightEye)
-
-        cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-        cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
-
-    cv2.imshow('Frame', frame)
+    # cv2.imshow('Frame', frame)
     key = cv2.waitKey(1) & 0xFF
 
     if key == ord('q'):
