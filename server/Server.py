@@ -10,7 +10,7 @@ import matplotlib.patches as mpatches
 
 OK = b'ok'
 
-HOST = 'localhost'
+HOST = '192.168.48.97'
 PORT = 8080
 
 global tasks

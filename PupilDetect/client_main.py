@@ -68,9 +68,9 @@ def run_with_server(HOST = 'localhost', PORT = 8080):
                             print('[*BLINK*] blink_count=', client.blink_count)
 
                         if time.time() - blink_start_t >= 10:
-                            # print('create new process with new  -------> ')
+                            print('create new process with new  -------> ')
                             comm_p = threading.Thread(target=client.send_data(blink=True))
-                            # print('create new process', comm_p)
+                            print('create new process', comm_p)
                             print('sent blink')
                             comm_p.start()
                             comm_p.join()
@@ -78,9 +78,9 @@ def run_with_server(HOST = 'localhost', PORT = 8080):
                             client.blink_count = 0
                             blink_start_t = time.time()
                         else:
-                            # print('create new process with new  -------> ')
+                            print('create new process with new  -------> ')
                             comm_p = threading.Thread(target=client.send_data())
-                            # print('create new process', comm_p)
+                            print('create new process', comm_p)
                             comm_p.start()
                             comm_p.join()
 
@@ -151,9 +151,11 @@ if __name__ == '__main__':
                            help='host address to connect')
 
     args = my_parser.parse_args()
+    print(args)
     if args.method == 'server':
         if args.host:
             run_with_server(HOST=args.host)
+            print(args.host)
         else:
             run_with_server()
     elif args.method == 'standalone':

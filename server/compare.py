@@ -3,6 +3,7 @@ import pandas
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
+from collections import Counter
 
 def input_data(file_1, file_2):
     df = pandas.read_csv(file_1)
@@ -38,8 +39,15 @@ def draw_raw_data(df, tobii_left, tobii_right, tobii_mean):
 
     plt.show()
 
+def filter(arr):
+    most_common = Counter([i for i in arr]).most_common()[0][0]
+    output = [i for i in arr if np.abs(i - most_common) <= 1]
+    print('most=', most_common)
+    return output
+
 def cal_delta(arr):
     arr = [i for i in arr if not np.isnan(i)]
+    arr = filter(arr)
     deltas = []
     for i in range(1, len(arr)-1):
         delta = arr[i] - arr[i-1]
@@ -47,19 +55,30 @@ def cal_delta(arr):
         deltas.append(percent)
 
     average_changes = np.average([np.abs(i) for i in deltas])
+    print('data: ', arr)
     print('average changes', average_changes)
     return deltas
 
 def draw_precentage(df, tobii_left, tobii_right, tobii_mean):
+    print('open_cv left: ')
     comp_left = cal_delta(df['left_pupil'])
+    print('open_cv right: ')
     comp_right = cal_delta(df['right_pupil'])
+    print('open_cv mean: ')
     comp_mean = cal_delta(df['mean'])
 
+    print('eye_tracker left: ')
     left = cal_delta(tobii_left)
+    print('eye_tracker right: ')
     right = cal_delta(tobii_right)
+    print('eye_tracker mean: ')
     mean = cal_delta(tobii_mean)
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+    ax1.set_yticks(np.arange(min(min(comp_left), min(left)), max(max(comp_left), max(left)), step=0.1))
+    ax2.set_yticks(np.arange(min(min(comp_right), min(right)), max(max(comp_right), max(right)), step=0.1))
+    ax3.set_yticks(np.arange(min(min(comp_mean), min(mean)), max(max(comp_mean), max(mean)), step=0.05))
+
     ax1.plot(comp_left, color='green', label='file 1 left_pupil_dilation')
     ax2.plot(comp_right, color='blue', label='file 1 right_pupil_dilation')
     ax3.plot(comp_mean, color='red', label='file 1 mean')
@@ -68,9 +87,9 @@ def draw_precentage(df, tobii_left, tobii_right, tobii_mean):
     ax2.plot(right, color='black', label='file 2 right pupil')
     ax3.plot(mean, color='black', label='file 2 mean')
 
-    ax1.legend()
-    ax2.legend()
-    ax3.legend()
+    ax1.legend(loc='upper right')
+    ax2.legend(loc='upper right')
+    ax3.legend(loc='upper right')
 
     plt.show()
 
