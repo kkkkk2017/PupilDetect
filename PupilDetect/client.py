@@ -37,20 +37,20 @@ class Client:
 
     def get_keypoints(self, image, detector, threshold):
         image = imutils.resize(image, width=50, inter=cv2.INTER_CUBIC)
-        # image = cv2.GaussianBlur(image, (3, 3), 1)
+        image = cv2.GaussianBlur(image, (3, 3), 1)
         _, thres = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
         blur = cv2.medianBlur(thres, 1)
 
         keypoints = detector.detect(blur)
 
         if keypoints:
-            # image_k = cv2.drawKeypoints(image, keypoints, image, (0, 0, 255),
-            #                             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            # cv2.imshow('image', image_k)
+            image_k = cv2.drawKeypoints(image, keypoints, image, (0, 0, 255),
+                                        cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            cv2.imshow('image', image_k)
             return keypoints[0].size
 
-        # stack = np.hstack((image, thres, blur))
-        # cv2.imshow('stack', stack)
+        stack = np.hstack((image, thres, blur))
+        cv2.imshow('stack', stack)
         return None
 
     def blob_process(self, eye, detector, start_thres):
