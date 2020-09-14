@@ -163,8 +163,7 @@ class Application(Frame):
         else:
             self.label.config(text='\nCOMPLETED!!\n', font=('Lucida Grande', 100, 'bold'), pady=200)
 
-
-if __name__ == '__main__':
+def run():
     root = Tk()
     width = root.winfo_screenwidth()
     height = root.winfo_screenwidth()
@@ -176,3 +175,7 @@ if __name__ == '__main__':
     app = Application(root)
 
     app.mainloop()
+
+
+if __name__ == '__main__':
+    run()

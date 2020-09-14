@@ -10,7 +10,8 @@ import matplotlib.patches as mpatches
 
 OK = b'ok'
 
-HOST = '192.168.48.97'
+# HOST = '192.168.48.97'
+HOST='localhost'
 PORT = 8080
 
 global tasks
@@ -137,8 +138,8 @@ def run(conn, task_num):
                     break
                 print(msg)
 
-            fig, ax = draw_line(fig, ax)
-            fig.show()
+            # fig, ax = draw_line(fig, ax)
+            # fig.show()
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setblocking(1)
@@ -152,6 +153,9 @@ s.listen(1)
 task_num = 0
 
 while True:
-    conn, addr = s.accept()
-    print('connection established ', addr)
-    run(conn, task_num)
+    try:
+        conn, addr = s.accept()
+        print('connection established ', addr)
+        run(conn, task_num)
+    except socket.error as err:
+        print(err)
