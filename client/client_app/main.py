@@ -3,19 +3,17 @@ import taskProgram
 import client_proxyl
 from multiprocessing import Process
 
+def start_program(self):
+    client = Process(name='client', target=client_proxyl.run_with_server, args=(('localhost', 8080)))
+    task = Process(name='task', target=taskProgram.run, args=())
 
-class Main():
-    def start(self):
-        client = Process(name='client', target=client_proxyl.run_with_server, args=(('localhost', 8080)))
-        task = Process(name='task', target=taskProgram.run, args=())
+    client.start()
+    task.start()
 
-        client.start()
-        task.start()
+    client.join()
+    task.join()
 
-        client.join()
-        task.join()
-
-def run():
+def main():
     root = Tk()
 
     root.title('Pupil Detector')
@@ -26,7 +24,7 @@ def run():
     calib.pack()
 
     start = Button(text='START', fg='dark green', bg='white', width=20, font=('calibri', 13, 'bold'),
-                   command=Main.start)
+                   command=start_program)
     start.pack()
 
     quit = Button(text='QUIT', fg='red', bg='white', width=20, font=('calibri', 13, 'bold'),
@@ -36,4 +34,4 @@ def run():
     root.mainloop()
 
 if __name__ == '__main__':
-    run()
+    main()

@@ -7,8 +7,9 @@ import cv2
 import time
 import dlib
 import argparse
+import os.path as path
 
-face_file = 'face_landmarks.dat'
+face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
 face_detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(face_file)
 
