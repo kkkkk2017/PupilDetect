@@ -1,0 +1,5 @@
+numpy~=1.16.2
+setuptools~=40.8.0
+imutils~=0.5.3
+scipy~=1.2.1
+dlib~=19.17
