@@ -22,7 +22,7 @@ global input_queue
 input_queue = Queue.Queue()
 
 def write_to_csv(task_num):
-    f = open('task_' + str(task_num) + '.csv', 'w')
+    f = open('data/task_' + str(task_num) + '.csv', 'w')
     with f:
         writer = csv.writer(f)
         if tasks:
