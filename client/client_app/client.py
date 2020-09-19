@@ -75,7 +75,7 @@ class Client:
                     #                             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
                     # cv2.imshow('image', image_k)
                     # print(side, (x, y, w, h), keypoints[0].pt, keypoints[0].size)
-                    return keypoints[0].size
+                    return keypoints[0].size #diameter
 
         # stack = np.hstack((image, thres, blur))
         # cv2.imshow('stack', stack)

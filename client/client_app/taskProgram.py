@@ -7,15 +7,15 @@ global task_dict
 global instructions
 
 task_dict = {
-    '0-back': [['C', 'A', 'H', 'E', 'B', 'W', 'Q', 'I', 'O', 'V'], ['C', 'A', 'H', 'E', 'B', 'W', 'Q', 'I', 'O', 'V']],
-    '1-back prac': ['C', 'C', 'A', 'B', 'A'],
-    '1-back': [['Q', 'C', 'F', 'W', 'W', 'M', 'M', 'R', 'Z', 'Z'],['t', 'r', 'i', 'a', 'l', '2']],
-    '1-back speed prac': ['C', 'C', 'A', 'B', 'A'],
-    '1-back speed': [['B', 'B', 'B', 'H', 'A', 'M', 'N', 'V', 'V', 'J'], ['t', 'r', 'i', 'a', 'l', '2']],
-    '2-back prac': ['H', 'I', 'I', 'I', 'O'],
-    '2-back': [['T', 'P', 'L', 'P', 'L', 'M', 'M', 'C', 'M', 'U'],['t', 'r', 'i', 'a', 'l', '2']],
-    '2-back speed prac': ['H', 'I', 'I', 'I', 'O'],
-    '2-back speed': [['K', 'A', 'A', 'K', 'R', 'A', 'R', 'C', 'B', 'M'], ['t', 'r', 'i', 'a', 'l', '2']],
+    '0-back': [['C', 'A', 'H', 'E', 'B', 'W', 'Q', 'I', 'O', 'V', 'C', 'A', 'H', 'E', 'B', 'W', 'Q', 'I', 'O', 'A']],
+    '1-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O'],
+    '1-back': [['Q', 'C', 'F', 'W', 'W', 'M', 'M', 'R', 'Z', 'Z', 'X', 'X', 'A', 'E', 'H', 'N', 'R', 'H', 'U', 'U']],
+    '1-back speed prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O'],
+    '1-back speed': [['B', 'B', 'B', 'H', 'A', 'M', 'N', 'V', 'V', 'J', 'X', 'X', 'A', 'E', 'H', 'N', 'R', 'H', 'U', 'U']],
+    '2-back prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
+    '2-back': [['T', 'P', 'L', 'P', 'L', 'M', 'M', 'C', 'M', 'U', 'X', 'X', 'A', 'E', 'H', 'N', 'R', 'H', 'U', 'U']],
+    '2-back speed prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
+    '2-back speed': [['K', 'A', 'A', 'K', 'R', 'A', 'R', 'C', 'B', 'M', 'X', 'X', 'A', 'E', 'H', 'N', 'R', 'H', 'U', 'U']],
 }
 
 instructions = {
@@ -85,67 +85,63 @@ class Application(Frame):
         # t = 0 - 5
         # if showing the prac task
         if self.if_prac:
-            self.label.config(fg='white')
             task = self.level_to_string() + ' prac'
-            letters = task_dict.get(task)
-            if self.t == 0:
-                self.task_frame.place(x=0, y=300)
+            letters = task_dict[task]
+        else:
+            letters = task_dict.get(self.level_to_string())[self.trial]
 
-            if self.t > 0:
-                self.task_labels[self.t - 1].config(fg='white')
-            self.task_labels[self.t].config(text=letters[self.t], fg='black')
+        if self.t == 2:
+            self.label.config(fg='white')
+            self.task_frame.place(x=0, y=300)
 
-            if self.t == 4:
-                self.if_prac = False
-                self.t = 0
+        if self.t == 0:
+            self.task_frame.place(x=0, y=100)
+            self.task_labels[4].config(fg='white')
+            if self.if_prac:
+                self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Practise')
             else:
-                self.t += 1
+                self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Ready')
+            self.t += 1
+            self.label.after(interval, self.start_task)
 
+        elif self.t == 1:
+            self.label.config(text='GO', fg='black')
+            self.t += 1
+            self.label.after(interval, self.start_task)
+
+        elif self.t-2 < len(letters):
+            current = self.t-2
+            self.show_label(current, letters[current])
+            self.t += 1
             self.label.after(interval, self.start_task)
 
         else:
-            if self.t == 2:
-                self.label.config(fg='white')
-                self.task_frame.place(x=0, y=300)
-
-            letters = task_dict.get(self.level_to_string())[self.trial]
-
-            if self.t == 0:
-                self.task_frame.place(x=0, y=100)
-                self.task_labels[4].config(fg='white')
-                self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Ready')
-                self.t += 1
-                self.label.after(interval, self.start_task)
-
-            elif self.t == 1:
-                self.label.config(text='GO', fg='black')
-                self.t += 1
-                self.label.after(interval, self.start_task)
-
-            elif self.t-2 < len(letters):
-                current = self.t-2
-                self.show_label(current, letters[current])
-                self.t += 1
-                self.label.after(interval, self.start_task)
-
+            # hide task frame
+            self.task_frame.place(x=0, y=120)
+            # self.task_labels[self.t - 3].config(fg='white')
+            self.task_labels[9].config(fg='white')
+            # show main labels
+            self.label.config(text='End', fg='black')
+            self.t = 0
+            if self.if_prac:
+                self.if_prac = False
             else:
-                # hide task frame
-                self.task_frame.place(x=0, y=120)
-                self.task_labels[self.t - 3].config(fg='white')
-                # show main labels
-                self.label.config(text='End', fg='black')
-                self.t = 0
-                self.if_prac = True
                 self.trial = 1
 
 
     def show_label(self, current, letter):
+
+        if current >= 10:
+            current -= 10
+            if current == 0:
+                self.task_labels[9].config(fg='white')
+
         if current > 0:
             # unshow prev label
             self.task_labels[current - 1].config(fg='white')
 
         #show current label
-        self.label.config(text='')
+        self.label.config(text=' ')
         self.task_labels[current].config(fg='black', text=letter)
 
     def level_to_string(self):
@@ -200,7 +196,7 @@ class Application(Frame):
         self.level_label.config(text='Current Task: ' + self.level_to_string())
 
         letters = task_dict.get(self.level_to_string())[self.trial]
-        for i in range(len(letters)):
+        for i in range(10):
             self.task_labels[i].config(text=letters[i])
 
 
