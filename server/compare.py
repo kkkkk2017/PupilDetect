@@ -79,9 +79,16 @@ def draw_precentage(df, tobii_left, tobii_right, tobii_mean):
     ax2.set_yticks(np.arange(min(min(comp_right), min(right)), max(max(comp_right), max(right)), step=0.1))
     ax3.set_yticks(np.arange(min(min(comp_mean), min(mean)), max(max(comp_mean), max(mean)), step=0.05))
 
-    ax1.plot(comp_left, color='green', label='file 1 left_pupil_dilation')
-    ax2.plot(comp_right, color='blue', label='file 1 right_pupil_dilation')
-    ax3.plot(comp_mean, color='red', label='file 1 mean')
+    x_1 = [0 for _ in range(len(comp_left))]
+    x_2 = [0 for _ in range(len(comp_right))]
+    x_3 = [0 for _ in range(len(comp_mean))]
+    ax1.plot(x_1, color='red', label='y=0')
+    ax2.plot(x_2, color='red', label='y=0')
+    ax3.plot(x_3, color='red', label='y=0')
+
+    # ax1.plot(comp_left, color='green', label='file 1 left_pupil_dilation')
+    # ax2.plot(comp_right, color='blue', label='file 1 right_pupil_dilation')
+    # ax3.plot(comp_mean, color='pink', label='file 1 mean')
 
     ax1.plot(left, color='black', label='file 2 left pupil')
     ax2.plot(right, color='black', label='file 2 right pupil')
@@ -96,9 +103,9 @@ def draw_precentage(df, tobii_left, tobii_right, tobii_mean):
 if __name__ == '__main__':
     my_parser = argparse.ArgumentParser(description='filenames')
     my_parser.add_argument('file_1',
-                           help='your file')
+                           help='csv file')
     my_parser.add_argument('file_2',
-                           help='tobii file')
+                           help='csv/xlsx file')
 
     args = my_parser.parse_args()
     df, tobii_left, tobii_right, tobii_mean = input_data(args.file_1, args.file_2)

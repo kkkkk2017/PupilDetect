@@ -7,15 +7,15 @@ global task_dict
 global instructions
 
 task_dict = {
-    '0-back': ['C', 'A', 'H', 'E', 'B', 'W', 'Q', 'I', 'O', 'V'],
+    '0-back': [['C', 'A', 'H', 'E', 'B', 'W', 'Q', 'I', 'O', 'V'], ['C', 'A', 'H', 'E', 'B', 'W', 'Q', 'I', 'O', 'V']],
     '1-back prac': ['C', 'C', 'A', 'B', 'A'],
-    '1-back': ['Q', 'C', 'F', 'W', 'W', 'M', 'M', 'R', 'Z', 'Z'],
+    '1-back': [['Q', 'C', 'F', 'W', 'W', 'M', 'M', 'R', 'Z', 'Z'],['t', 'r', 'i', 'a', 'l', '2']],
     '1-back speed prac': ['C', 'C', 'A', 'B', 'A'],
-    '1-back speed': ['B', 'B', 'B', 'H', 'A', 'M', 'N', 'V', 'V', 'J'],
+    '1-back speed': [['B', 'B', 'B', 'H', 'A', 'M', 'N', 'V', 'V', 'J'], ['t', 'r', 'i', 'a', 'l', '2']],
     '2-back prac': ['H', 'I', 'I', 'I', 'O'],
-    '2-back': ['K', 'A', 'A', 'K', 'R', 'A', 'R', 'C', 'B', 'M'],
+    '2-back': [['T', 'P', 'L', 'P', 'L', 'M', 'M', 'C', 'M', 'U'],['t', 'r', 'i', 'a', 'l', '2']],
     '2-back speed prac': ['H', 'I', 'I', 'I', 'O'],
-    '2-back speed': ['T', 'P', 'L', 'P', 'L', 'M', 'M', 'C', 'M', 'U'],
+    '2-back speed': [['K', 'A', 'A', 'K', 'R', 'A', 'R', 'C', 'B', 'M'], ['t', 'r', 'i', 'a', 'l', '2']],
 }
 
 instructions = {
@@ -70,7 +70,8 @@ class Application(Frame):
         self.pack()
         self.if_prac = False
         self.not_done_level = [1, 2, 3,] # exclude 2-back speed task
-        self.speed_2 = False
+        self.speed_2 = False # 2-back speed task
+        self.trial = 0 # the number of task trial
 
         # letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
         #            'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
@@ -82,6 +83,7 @@ class Application(Frame):
             interval = 1000
 
         # t = 0 - 5
+        # if showing the prac task
         if self.if_prac:
             self.label.config(fg='white')
             task = self.level_to_string() + ' prac'
@@ -106,7 +108,7 @@ class Application(Frame):
                 self.label.config(fg='white')
                 self.task_frame.place(x=0, y=300)
 
-            letters = task_dict.get(self.level_to_string())
+            letters = task_dict.get(self.level_to_string())[self.trial]
 
             if self.t == 0:
                 self.task_frame.place(x=0, y=100)
@@ -133,6 +135,8 @@ class Application(Frame):
                 # show main labels
                 self.label.config(text='End', fg='black')
                 self.t = 0
+                self.if_prac = True
+                self.trial = 1
 
 
     def show_label(self, current, letter):
@@ -169,9 +173,10 @@ class Application(Frame):
                            fg='red', bg='white', command=self.master.destroy)
         self.QUIT.pack({"side": "right"})
 
+    #prepare 0-back task
     def prepare_task(self):
         self.task_labels=[]
-        letters = task_dict.get(self.level_to_string())
+        letters = task_dict.get('0-back')[0]
         for i in range(len(letters)):
             label = Label(self.task_frame, font=('calibri', 100, 'bold'), text=letters[i], fg='white', padx=33)
             label.config(bg='white')
@@ -181,30 +186,34 @@ class Application(Frame):
     def createTask(self):
         self.t = 0
         self.current_level = 0
+        self.trial = 0
         instruction = instructions.get(self.level_to_string())
         self.label = Label(self.center_frame, font=('calibri', 30), text=instruction, width=300, padx=50, pady=100, fg='black')
         self.label.config(background='white', justify='center')
         self.label.pack()
         self.center_frame.place(x=0, y=200)
 
+    # initial task, reset the label text
     def initial_tasks(self):
         instruction = instructions.get(self.level_to_string())
         self.label.config(text=instruction, font=('calibri', 30), fg='black')
         self.level_label.config(text='Current Task: ' + self.level_to_string())
 
-        letters = task_dict.get(self.level_to_string())
+        letters = task_dict.get(self.level_to_string())[self.trial]
         for i in range(len(letters)):
             self.task_labels[i].config(text=letters[i])
 
+
     def reset_task(self):
         self.t = 0
+        self.trial = 0
         # level 0 does not have prac task
         self.if_prac = True
 
         if not self.speed_2:
             if len(self.not_done_level) > 0:
                 get = random.randint(0, len(self.not_done_level)-1)
-                self.current_level = self.not_done_level.pop(get)
+                self.current_level = self.not_done_level.pop(get) # get new task level
                 self.initial_tasks()
 
             else:

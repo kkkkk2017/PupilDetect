@@ -8,10 +8,18 @@ import time
 import dlib
 import argparse
 import os.path as path
+import Tkinter
+import tkMessageBox
+
+client = Client()
 
 face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
 face_detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(face_file)
+
+global pre_pupil_data
+pre_pupil_data_left = []
+pre_pupil_data_right = []
 
 EYE_AR_THRESH = 0.21  # default threshold for indicate blink
 EYE_AR_CONSEC_FRAMES = 3  # for the number of consecutive frames the eye must be below the threshold
@@ -27,7 +35,7 @@ def run_with_server(HOST = 'localhost', PORT = 8080):
         while True:
             print('connection true')
             cap = cv2.VideoCapture(0)
-            client = Client(ServerSocket)
+            client.socket = ServerSocket
 
             blink_start_t = time.time()
             blink_counter = 0
@@ -100,7 +108,80 @@ def run_with_server(HOST = 'localhost', PORT = 8080):
         print(err)
 
 
+def handle_blink(client, shape, frame, show):
+    # detecting blink
+    leftEye = shape[lStart: lEnd]
+    rightEye = shape[rStart: rEnd]
+    leftEAR = client.eye_aspect_ratio(leftEye)
+    rightEAR = client.eye_aspect_ratio(rightEye)
+
+    if show:
+        leftEyeHull = cv2.convexHull(leftEye)
+        rightEyeHull = cv2.convexHull(rightEye)
+        cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
+        cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+
+    ear = (leftEAR + rightEAR) / 2.0
+    return ear
+
+def calib_eye(left, right, eye, calib_count):
+    images = []
+    max_thres = 0
+
+    for threshold in range(0, 130):
+        result = get_keypoints_calib(eye, threshold)
+        if result:
+            max_thres = max(max_thres, threshold)
+            images.append(result)
+        # if result is None and threshold > max_thres + 10 and len(images) > 0:
+        #     break
+
+    for i in images:
+        cv2.imshow('image', i[0])
+
+        if cv2.waitKey(20000) & 0xFF == ord('y'):
+            cv2.destroyWindow('image')
+            calib_count -= 1
+            tkMessageBox.showinfo('Sample count Left', '{} left'.format(calib_count))
+
+            if left:
+                pre_pupil_data_left.append(i[1:])
+                if len(pre_pupil_data_left) >= 5:
+                    left = False
+                    right = True
+                    return left, right, 10
+            if right:
+                pre_pupil_data_right.append(i[1:])
+                if len(pre_pupil_data_right) >= 5:
+                    left = False
+                    right = False
+                    return left, right, 10
+
+        cv2.destroyWindow('image')
+    return None, None, calib_count
+
+
+def get_keypoints_calib(image, threshold):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    (x,y,w,h) = cv2.boundingRect(gray)
+    gray = imutils.resize(gray, width=int(w * 3), height=int(h * 3), inter=cv2.INTER_CUBIC)
+    _, thres = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
+    blur = cv2.medianBlur(thres, 1)
+
+    keypoints = client.blob_detector.detect(blur)
+    if keypoints:
+        if keypoints[0].pt[0] >= w*0.7 and keypoints[0].pt[0] >= h*0.33 and keypoints[0].size < 10:
+            image_k = cv2.drawKeypoints(gray, keypoints, gray, (0, 0, 255),
+                                        cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            return (image_k, threshold, keypoints[0].pt, keypoints[0].size)
+
+    return None
+
 def run_standalone():
+    root = Tkinter.Tk()
+    root.withdraw()
+
+    tkMessageBox.showinfo('Calibration', 'Please open your eyes and stay for 1 second.\nWhen you ready, press Any Key')
 
     cap = cv2.VideoCapture(0)
     client = Client()
@@ -109,6 +190,12 @@ def run_standalone():
 
     MAX_EAR = 0
     EAR_UNCHANGED = 0
+
+    eye_calib = True
+    left = True
+    right = False
+    show_hull = True
+    calib_count = 10
 
     while True:
         _, frame = cap.read()
@@ -122,30 +209,12 @@ def run_standalone():
             shape = predictor(gray, rect)
             shape = face_utils.shape_to_np(shape)
 
-            # get eyes
-            left_eye = client.extract_eye(frame, shape, lStart, lEnd)
-            right_eye = client.extract_eye(frame, shape, rStart, rEnd)
-            # detect pupil size
-            left_size, right_size = client.blob_process_both_eyes(left_eye, right_eye, 0, 0)
-
-            client.time = time.time()
-            if left_size is not None:
-                client.left_pupil = left_size[1]
-            if right_size is not None:
-                client.right_pupil = right_size[1]
-
-            # detecting blink
-            leftEye = shape[lStart: lEnd]
-            rightEye = shape[rStart: rEnd]
-            leftEAR = client.eye_aspect_ratio(leftEye)
-            rightEAR = client.eye_aspect_ratio(rightEye)
-
-            ear = (leftEAR + rightEAR) / 2.0
+            #detect blink
+            ear = handle_blink(client, shape, frame, show_hull)
 
             if EAR_UNCHANGED < 3:
                 MAX_EAR = max(MAX_EAR, ear)
-                if ear == MAX_EAR:
-                    # print('MAX_EAR set', MAX_EAR)
+                if (ear // 0.001) == (MAX_EAR // 0.001):
                     EAR_UNCHANGED += 1
                 else:
                     EAR_UNCHANGED = 0
@@ -153,8 +222,13 @@ def run_standalone():
             elif EAR_UNCHANGED == 3:
                 global EYE_AR_THRESH
                 EYE_AR_THRESH = MAX_EAR * 0.7
-                # print('EYE_AR_THRESH SET!', EYE_AR_THRESH)
-                EAR_UNCHANGED += 1 # make it to 4 so it won't run this line again
+                EAR_UNCHANGED += 1  # make it to 5 so it won't run this line again
+                client.calib_blink = False  # calibration for blink end
+                tkMessageBox.showinfo('Calibration', 'Blink SET! {}'.format(EYE_AR_THRESH))
+                show_hull = False
+                # print(EAR_UNCHANGED, EYE_AR_THRESH)
+                tkMessageBox.showinfo('Calibration',
+                                      'Please select the image that circled your pupil correctly.\nWhen you ready, press Any Key')
 
             if ear < EYE_AR_THRESH:
                 blink_counter += 1
@@ -165,9 +239,39 @@ def run_standalone():
                 # then increment the total number of blinks
                 if blink_counter >= EYE_AR_CONSEC_FRAMES:
                     client.blink_count += 1
-                    print('[BLINK**]')
                 # reset the eye frame counter
                 blink_counter = 0
+
+            # get eyes
+            if eye_calib and left:
+                left_eye = client.extract_eye(frame, shape, lStart, lEnd)
+                r1, r2, calib_count = calib_eye(left, right, left_eye, calib_count)
+                if r1 is not None and r2 is not None:
+                    left = r1
+                    right = r2 # finish left eye
+                    tkMessageBox.showinfo('Calibration', 'Left eye done!')
+
+            elif eye_calib and right:
+                right_eye = client.extract_eye(frame, shape, rStart, rEnd)
+                r1, r2, calib_count = calib_eye(left, right, right_eye, calib_count)
+                if r1 is not None and r2 is not None:
+                    left = r1
+                    right = r2 # finish right eye
+                    eye_calib = False # finish eye calibration
+                    client.set_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right)
+                    tkMessageBox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
+
+            else:
+                # detect pupil size
+                left_eye = client.extract_eye(frame, shape, lStart, lEnd)
+                right_eye = client.extract_eye(frame, shape, rStart, rEnd)
+                left_size, right_size = client.blob_process_both_eyes(left_eye, right_eye)
+
+                client.time = time.time()
+                if left_size is not None:
+                    client.left_pupil = left_size
+                if right_size is not None:
+                    client.right_pupil = right_size
 
             client.show_text(frame, ear, time.time())
 
