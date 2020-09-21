@@ -10,12 +10,13 @@ setup(
     packages=find_packages(),
     package_data={'client.client_app': ['*.dat']},
     install_requires=[
-        'numpy~=1.16.2',
+        'numpy~=1.16.6',
         'setuptools~=40.8.0',
         'imutils~=0.5.3',
         'scipy~=1.2.1',
         'dlib~=19.17',
-        'opencv-python~=3.2.0',
+        'opencv-python~=3.4.8.29',
+        'cmake~=3.18.2',
     ],
     py_modules = ['main', 'Task', 'client', 'client_proxyl', 'taskProgram'],
     entry_points={

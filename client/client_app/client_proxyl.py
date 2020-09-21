@@ -191,7 +191,7 @@ def run_standalone():
     MAX_EAR = 0
     EAR_UNCHANGED = 0
 
-    eye_calib = True
+    calib = 0
     left = True
     right = False
     show_hull = True
@@ -226,6 +226,7 @@ def run_standalone():
                 client.calib_blink = False  # calibration for blink end
                 tkMessageBox.showinfo('Calibration', 'Blink SET! {}'.format(EYE_AR_THRESH))
                 show_hull = False
+                calib = 1
                 # print(EAR_UNCHANGED, EYE_AR_THRESH)
                 tkMessageBox.showinfo('Calibration',
                                       'Please select the image that circled your pupil correctly.\nWhen you ready, press Any Key')
@@ -243,7 +244,7 @@ def run_standalone():
                 blink_counter = 0
 
             # get eyes
-            if eye_calib and left:
+            if calib == 1 and left:
                 left_eye = client.extract_eye(frame, shape, lStart, lEnd)
                 r1, r2, calib_count = calib_eye(left, right, left_eye, calib_count)
                 if r1 is not None and r2 is not None:
@@ -251,17 +252,17 @@ def run_standalone():
                     right = r2 # finish left eye
                     tkMessageBox.showinfo('Calibration', 'Left eye done!')
 
-            elif eye_calib and right:
+            elif calib == 1 and right:
                 right_eye = client.extract_eye(frame, shape, rStart, rEnd)
                 r1, r2, calib_count = calib_eye(left, right, right_eye, calib_count)
                 if r1 is not None and r2 is not None:
                     left = r1
                     right = r2 # finish right eye
-                    eye_calib = False # finish eye calibration
+                    calib = 2 # finish eye calibration
                     client.set_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right)
                     tkMessageBox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
 
-            else:
+            if calib == 2:
                 # detect pupil size
                 left_eye = client.extract_eye(frame, shape, lStart, lEnd)
                 right_eye = client.extract_eye(frame, shape, rStart, rEnd)
