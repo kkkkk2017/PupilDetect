@@ -22,6 +22,13 @@ class Client:
         self.time = 0  # the time when updating the data
         self.calib_blink = True
         self.blob_detector = cv2.SimpleBlobDetector_create(detector_params)
+        self.left_threshold = None
+        self.right_threshold = None
+        self.left_x = None
+        self.left_y = None
+        self.right_x = None
+        self.right_y = None
+
 
     def send_data(self, blink=False):
         if blink:
@@ -48,16 +55,16 @@ class Client:
 
     def get_keypoints(self, image, threshold, side):
         if side == 0:
-            min_x = self.left_x[0]
-            max_x = self.left_x[1]
-            min_y = self.left_y[0]
-            max_y = self.left_y[1]
+            min_x = self.left_x[0] if self.left_x else 0
+            max_x = self.left_x[1] if self.left_x else 20
+            min_y = self.left_y[0] if self.left_y else 0
+            max_y = self.left_y[1] if self.left_y else 20
 
         if side == 1:
-            min_x = self.right_x[0]
-            max_x = self.right_x[1]
-            min_y = self.right_y[0]
-            max_y = self.right_y[1]
+            min_x = self.right_x[0] if self.right_x else 0
+            max_x = self.right_x[1] if self.right_x else 20
+            min_y = self.right_y[0] if self.right_y else 0
+            max_y = self.right_y[1] if self.right_y else 20
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         (x, y, w, h) = cv2.boundingRect(image)
@@ -85,11 +92,11 @@ class Client:
         optimal = []
 
         if side == 0:  # 0 - left side
-            start_threshold = self.left_threshold[0] if self.left_threshold else 10
-            end_threshold = self.left_threshold[1] if self.left_threshold else 130
+            start_threshold = self.left_threshold[0] if self.left_threshold is not None else 10
+            end_threshold = self.left_threshold[1] if self.left_threshold is not None else 130
         if side == 1:  # 1 - right side
-            start_threshold = self.right_threshold[0] if self.right_threshold else 10
-            end_threshold = self.right_threshold[1] if self.right_threshold else 130
+            start_threshold = self.right_threshold[0] if self.right_threshold is not None else 10
+            end_threshold = self.right_threshold[1] if self.right_threshold is not None else 130
 
         for thres in range(start_threshold, end_threshold):
             area = self.get_keypoints(image=eye, threshold=thres, side=side)

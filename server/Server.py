@@ -5,13 +5,13 @@ import sys
 import Queue
 import time
 import csv
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+# import matplotlib.pyplot as plt
+# import matplotlib.patches as mpatches
 
 OK = b'ok'
 
-# HOST = '192.168.48.97'
-HOST='localhost'
+HOST = '172.17.253.113'
+# HOST='localhost'
 PORT = 8080
 
 global tasks
@@ -32,7 +32,7 @@ def write_to_csv(task_num):
             print('csv done.' + f.name)
 
 
-def receive_data(data, append_data, fig, ax, index, error):
+def receive_data(data, append_data, index, error):
     print('REV--->')
     data = pickle.loads(data[3:])
     data.toString()
@@ -43,11 +43,11 @@ def receive_data(data, append_data, fig, ax, index, error):
         print('append')
         print(tasks)
         index+=1
-        virtualise_data(fig, ax, index, data.left_pupil, data.right_pupil, data.mean)
+        # virtualise_data(fig, ax, index, data.left_pupil, data.right_pupil, data.mean)
 
     else:
         print('not append')
-    return fig, ax, index
+    return index
 
 
 def add_input(input_queue):
@@ -56,15 +56,15 @@ def add_input(input_queue):
         input_queue.put(msg)
 
 
-def create_fig():
-    fig, ax = plt.subplots()
-    legend_element = [mpatches.Patch(color='blue', label='Left pupil', linestyle='-', linewidth=0.5),
-                      mpatches.Patch(color='green', label='Right pupil', linestyle='-', linewidth=0.5),
-                      mpatches.Patch(color='red', label='Mean', linestyle='--', linewidth=0.5)]
-    ax.legend(handles=legend_element, loc='upper_left')
-    ax.set_ylim(bottom=0, top=15)
-    ax.set_title('Pupil Dilation')
-    return fig, ax
+# def create_fig():
+#     fig, ax = plt.subplots()
+#     legend_element = [mpatches.Patch(color='blue', label='Left pupil', linestyle='-', linewidth=0.5),
+#                       mpatches.Patch(color='green', label='Right pupil', linestyle='-', linewidth=0.5),
+#                       mpatches.Patch(color='red', label='Mean', linestyle='--', linewidth=0.5)]
+#     ax.legend(handles=legend_element, loc='upper_left')
+#     ax.set_ylim(bottom=0, top=15)
+#     ax.set_title('Pupil Dilation')
+#     return fig, ax
 
 
 def virtualise_data(fig, ax, i, ld, rd, m):
@@ -87,7 +87,7 @@ def draw_line(fig, ax):
     return fig, ax
 
 def run(conn, task_num):
-    print('create send_message thread')
+    # print('create send_message thread')
     input_thread = threading.Thread(target=add_input, args=(input_queue,))
     input_thread.daemon = True
     input_thread.start()
@@ -96,7 +96,7 @@ def run(conn, task_num):
     terminate = False
     error = False
 
-    fig, ax = create_fig()
+    # fig, ax = create_fig()
     index = 0
 
     while not terminate:
@@ -106,12 +106,14 @@ def run(conn, task_num):
                 data = conn.recv(1024)
                 if data:
                     if data.__contains__(b'[D]'):
-                        fig, ax, index = receive_data(data, append_data, fig, ax, index, error)
+                        index = receive_data(data, append_data, index, error)
                         last_update = time.time()
                         error = False
 
             if not input_queue.empty():
-                msg = input_queue.get()[:-1]
+                msg = input_queue.get()
+                # print('get', msg, type(msg))
+
                 if msg == 's':
                     start_t.append(time.time())
                     task_num+=1
@@ -136,7 +138,6 @@ def run(conn, task_num):
                     print('close connection')
                     terminate = True
                     break
-                print(msg)
 
             # fig, ax = draw_line(fig, ax)
             # fig.show()

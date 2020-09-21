@@ -26,13 +26,20 @@ EYE_AR_CONSEC_FRAMES = 3  # for the number of consecutive frames the eye must be
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
+global run
+run = True
+
+def terminate_detect():
+    global run
+    run = False
+
 def run_with_server(HOST = 'localhost', PORT = 8080):
     ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
         conn = ServerSocket.connect((HOST, PORT))
         print('Connection Established')
-        while True:
+        while run:
             print('connection true')
             cap = cv2.VideoCapture(0)
             client.socket = ServerSocket
@@ -40,7 +47,7 @@ def run_with_server(HOST = 'localhost', PORT = 8080):
             blink_start_t = time.time()
             blink_counter = 0
 
-            while True:
+            while run:
                 _, frame = cap.read()
                 frame = imutils.resize(frame, width=500, height=500)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -57,11 +64,11 @@ def run_with_server(HOST = 'localhost', PORT = 8080):
                     left_eye = client.extract_eye(frame, shape, lStart, lEnd)
                     right_eye = client.extract_eye(frame, shape, rStart, rEnd)
                     # detect pupil size
-                    left_size, right_size = client.blob_process_both_eyes(left_eye, right_eye, 0, 0)
+                    left_size, right_size = client.blob_process_both_eyes(left_eye, right_eye)
 
                     client.time = time.time()
-                    client.left_pupil = left_size[1] if left_size is not None else 0
-                    client.right_pupil = right_size[1] if right_size is not None else 0
+                    client.left_pupil = left_size if left_size is not None else 0
+                    client.right_pupil = right_size if right_size is not None else 0
 
                     # print(client.left_pupil, client.right_pupil, 'data updated!!')
 
@@ -106,6 +113,8 @@ def run_with_server(HOST = 'localhost', PORT = 8080):
 
     except socket.error as err:
         print(err)
+    finally:
+        exit(0)
 
 
 def handle_blink(client, shape, frame, show):

@@ -1,5 +1,6 @@
 from Tkinter import *
 import random
+from client_proxyl import terminate_detect
 
 global width
 global height
@@ -152,6 +153,11 @@ class Application(Frame):
                 4: '2-back speed'}
         return dict.get(self.current_level)
 
+    def terminate(self):
+        self.master.destroy()
+        terminate_detect()
+        exit(0)
+
     def create_frame(self):
         self.level_label = Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
                                  text='Current Task: ' + self.level_to_string(), padx=30, bg='white')
@@ -166,7 +172,7 @@ class Application(Frame):
         self.NEXT.pack({"side": "left"})
 
         self.QUIT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='QUIT',
-                           fg='red', bg='white', command=self.master.destroy)
+                           fg='red', bg='white', command=self.terminate)
         self.QUIT.pack({"side": "right"})
 
     #prepare 0-back task

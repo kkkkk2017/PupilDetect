@@ -14,9 +14,9 @@ setup(
         'setuptools~=40.8.0',
         'imutils~=0.5.3',
         'scipy~=1.2.1',
+        'cmake~=3.18.2',
         'dlib~=19.17',
         'opencv-python~=3.4.8.29',
-        'cmake~=3.18.2',
     ],
     py_modules = ['main', 'Task', 'client', 'client_proxyl', 'taskProgram'],
     entry_points={
