@@ -139,6 +139,9 @@ def run(conn, task_num):
                     terminate = True
                     break
 
+                elif msg == 'exit':
+                    exit(0)
+
             # fig, ax = draw_line(fig, ax)
             # fig.show()
 

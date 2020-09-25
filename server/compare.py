@@ -50,9 +50,12 @@ def cal_delta(arr):
     arr = filter(arr)
     deltas = []
     for i in range(1, len(arr)-1):
-        delta = arr[i] - arr[i-1]
-        percent = delta/arr[i-1]
-        deltas.append(percent)
+        if arr[i] != 0 and arr[i-1] != 0:
+            delta = arr[i] - arr[i-1]
+            percent = delta/arr[i-1]
+            deltas.append(percent)
+        else:
+            deltas.append(0)
 
     average_changes = np.average([np.abs(i) for i in deltas])
     print('data: ', arr)
@@ -86,9 +89,9 @@ def draw_precentage(df, tobii_left, tobii_right, tobii_mean):
     ax2.plot(x_2, color='red', label='y=0')
     ax3.plot(x_3, color='red', label='y=0')
 
-    # ax1.plot(comp_left, color='green', label='file 1 left_pupil_dilation')
-    # ax2.plot(comp_right, color='blue', label='file 1 right_pupil_dilation')
-    # ax3.plot(comp_mean, color='pink', label='file 1 mean')
+    ax1.plot(comp_left, color='green', label='file 1 left_pupil_dilation')
+    ax2.plot(comp_right, color='blue', label='file 1 right_pupil_dilation')
+    ax3.plot(comp_mean, color='pink', label='file 1 mean')
 
     ax1.plot(left, color='black', label='file 2 left pupil')
     ax2.plot(right, color='black', label='file 2 right pupil')

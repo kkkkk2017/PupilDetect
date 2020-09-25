@@ -303,11 +303,9 @@ if __name__ == '__main__':
                            help='host address to connect')
 
     args = my_parser.parse_args()
-    print(args)
     if args.method == 'server':
         if args.host:
             run_with_server(HOST=args.host)
-            print(args.host)
         else:
             run_with_server()
     elif args.method == 'standalone':
