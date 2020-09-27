@@ -8,7 +8,7 @@ setup(
     author_email='kaji@student.unimelb.edu.au',
     include_package_data=True,
     packages=find_packages(),
-    package_data={'client.client_app': ['*.dat']},
+    package_data={'client.client_app': ['*.dat', 'tasks/*.txt']},
     install_requires=[
         'numpy~=1.16.6',
         'setuptools~=40.8.0',

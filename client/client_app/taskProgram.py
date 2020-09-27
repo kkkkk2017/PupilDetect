@@ -74,7 +74,7 @@ class Application(Frame):
 
     def read_tasks(self):
         level = self.level_to_string()
-        file = path.join(path.dirname(__file__), 'tasks/'+level+'.txt')
+        file = path.join(path.dirname(__file__), 'tasks', level+'.txt')
         self.current_task = []
         f = open(file, 'r')
         lines = f.readlines()
@@ -155,10 +155,10 @@ class Application(Frame):
             self.current_level = 4
             self.initial_tasks()
 
-    def start_task(self, interval=500):
+    def start_task(self, interval=2000):
 
         if self.level_to_string().__contains__('speed'):
-            interval = 500  # 1000
+            interval = 1000  # 1000
 
         # t = 0 - 5
         # if showing the prac task
@@ -221,6 +221,7 @@ class Application(Frame):
         self.task_labels[label].config(fg='black', text=letter)
 
 def run():
+
     root = Tk()
     width = root.winfo_screenwidth()
     height = root.winfo_screenwidth()
