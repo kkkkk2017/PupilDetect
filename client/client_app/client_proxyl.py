@@ -10,6 +10,8 @@ import argparse
 import os.path as path
 import Tkinter
 import tkMessageBox
+from scipy.spatial import distance as dist
+import numpy as np
 
 client = Client()
 
@@ -26,103 +28,140 @@ EYE_AR_CONSEC_FRAMES = 3  # for the number of consecutive frames the eye must be
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
+detector_params = cv2.SimpleBlobDetector_Params()
+detector_params.filterByArea = True
+detector_params.minArea = 45
+detector_params.maxArea = 200
+blob_detector = cv2.SimpleBlobDetector_create(detector_params)
+
 global run
 run = True
+
+def set_client(c):
+    global client
+    client = c
+
+def extract_eye(frame, shape, start, end):
+    (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
+    roi = frame[y:(y + h), x:(x + w)]
+    roi = roi[int(h * 0.05): (h), int(w * 0.2): int(w * 0.9)]
+    return roi
+
+
+def eye_aspect_ratio(eye):
+    A = dist.euclidean(eye[1], eye[5])  # vertical
+    B = dist.euclidean(eye[2], eye[4])
+
+    C = dist.euclidean(eye[0], eye[3])  # horizontal
+    ear = (A + B) / (2.0 * C)
+    return ear
+
+
+def show_text(frame, ear, time):
+    cv2.putText(frame, "Blinks: {}".format(client.blink_count), (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+    cv2.putText(frame, "EAR:{:.2f}".format(ear), (10, 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+
+    cv2.putText(frame, 'Left Pupil: {:.5f}'.format(client.left_pupil / 3), (300, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+    cv2.putText(frame, 'Right Pupil: {:.5f}'.format(client.right_pupil / 3), (300, 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+
+    cv2.putText(frame, 'Time {:2f}'.format(time - client.start_time), (10, 350),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+
 
 def terminate_detect():
     global run
     run = False
 
-def run_with_server(HOST = 'localhost', PORT = 8080):
-    ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    try:
-        conn = ServerSocket.connect((HOST, PORT))
-        print('Connection Established')
-        while run:
-            print('connection true')
-            cap = cv2.VideoCapture(0)
-            client.socket = ServerSocket
+###################### main detection ######################
+def image_preprocess(image, threshold):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    (x, y, w, h) = cv2.boundingRect(image)
+    image = imutils.resize(image, width=int(w * 3), height=int(h * 3), inter=cv2.INTER_CUBIC)
+    _, thres = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+    blur = cv2.medianBlur(thres, 1)
+    return blur, image, w, h
 
-            blink_start_t = time.time()
-            blink_counter = 0
+def get_keypoints(image, threshold, side):
+    if side == 0:
+        min_x = client.left_x[0] if client.left_x else 0
+        max_x = client.left_x[1] if client.left_x else 20
+        min_y = client.left_y[0] if client.left_y else 0
+        max_y = client.left_y[1] if client.left_y else 20
 
-            while run:
-                _, frame = cap.read()
-                frame = imutils.resize(frame, width=500, height=500)
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    if side == 1:
+        min_x = client.right_x[0] if client.right_x else 0
+        max_x = client.right_x[1] if client.right_x else 20
+        min_y = client.right_y[0] if client.right_y else 0
+        max_y = client.right_y[1] if client.right_y else 20
 
-                # detect face
-                rects = face_detector(gray, 0)
+    img, _, _, _ = image_preprocess(image, threshold)
+    keypoints = blob_detector.detect(img)
 
-                for rect in rects:
-                    # detect sense organs
-                    shape = predictor(gray, rect)
-                    shape = face_utils.shape_to_np(shape)
+    if keypoints:
+        if keypoints[0].pt[0] >= min_x and keypoints[0].pt[0] <= max_x:
+            if keypoints[0].pt[1] >= min_y and keypoints[0].pt[1] <= max_y:
+                # image_k = cv2.drawKeypoints(image, keypoints, image, (0, 0, 255),
+                #                             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                # cv2.imshow('image', image_k)
+                # print(side, (x, y, w, h), keypoints[0].pt, keypoints[0].size)
+                return keypoints[0].size  # diameter
 
-                    # get eyes
-                    left_eye = client.extract_eye(frame, shape, lStart, lEnd)
-                    right_eye = client.extract_eye(frame, shape, rStart, rEnd)
-                    # detect pupil size
-                    left_size, right_size = client.blob_process_both_eyes(left_eye, right_eye)
-
-                    client.time = time.time()
-                    client.left_pupil = left_size if left_size is not None else 0
-                    client.right_pupil = right_size if right_size is not None else 0
-
-                    # print(client.left_pupil, client.right_pupil, 'data updated!!')
-
-                    # detecting blink
-                    leftEye = shape[lStart: lEnd]
-                    rightEye = shape[rStart: rEnd]
-                    leftEAR = client.eye_aspect_ratio(leftEye)
-                    rightEAR = client.eye_aspect_ratio(rightEye)
-
-                    ear = (leftEAR + rightEAR) / 2.0
-                    # print(ear)
-
-                    if ear < EYE_AR_THRESH:
-                        blink_counter += 1
-                        # otherwise, the eye aspect ratio is not below the blink
-                        # threshold
-                    else:
-                        # if the eyes were closed for a sufficient number of
-                        # then increment the total number of blinks
-                        if blink_counter >= EYE_AR_CONSEC_FRAMES:
-                            client.blink_count += 1
-                            # print('[*BLINK*] blink_count=', client.blink_count)
-                        # reset the eye frame counter
-                        blink_counter = 0
-
-                    if time.time() - blink_start_t >= 10:
-                        # print('create new process with new  -------> ')
-                        comm_p = threading.Thread(target=client.send_data(blink=True))
-                        # print('create new process', comm_p)
-                        # print('sent blink')
-                        comm_p.start()
-                        comm_p.join()
-
-                        client.blink_count = 0
-                        blink_start_t = time.time()
-                    elif not (client.left_pupil == 0 and client.right_pupil == 0):
-                        # print('create new process with new  -------> ')
-                        comm_p = threading.Thread(target=client.send_data())
-                        # print('create new process', comm_p)
-                        comm_p.start()
-                        comm_p.join()
-
-    except socket.error as err:
-        print(err)
-    finally:
-        exit(0)
+    # stack = np.hstack((image, thres, blur))
+    # cv2.imshow('stack', stack)
+    return None
 
 
-def handle_blink(client, shape, frame, show):
+def blob_process(eye, side):
+    optimal = []
+
+    if side == 0:  # 0 - left side
+        start_threshold = client.left_threshold[0] if client.left_threshold is not None else 10
+        end_threshold = client.left_threshold[1] if client.left_threshold is not None else 130
+    if side == 1:  # 1 - right side
+        start_threshold = client.right_threshold[0] if client.right_threshold is not None else 10
+        end_threshold = client.right_threshold[1] if client.right_threshold is not None else 130
+
+    for thres in range(start_threshold, end_threshold):
+        area = get_keypoints(image=eye, threshold=thres, side=side)
+        if area:
+            if area < 10:
+                optimal.append(area)
+                pass
+        elif area is None and len(optimal) > 0:
+            break
+
+    if len(optimal) > 0:
+        if len(optimal) >= 2:
+            return np.mean(optimal)
+        else:
+            return optimal[0]
+
+    return None
+
+
+def blob_process_both_eyes(left_eye, right_eye):
+    left_optimal = blob_process(left_eye, 0)
+    right_optimal = blob_process(right_eye, 1)
+
+    # # print('left', left_optimal, 'right', right_optimal)
+    # if left_optimal is not None or right_optimal is not None:
+    #     return left_optimal, right_optimal
+
+    return left_optimal, right_optimal
+
+
+################### calibration ############################
+def handle_blink(shape, frame, show):
     # detecting blink
     leftEye = shape[lStart: lEnd]
     rightEye = shape[rStart: rEnd]
-    leftEAR = client.eye_aspect_ratio(leftEye)
-    rightEAR = client.eye_aspect_ratio(rightEye)
+    leftEAR = eye_aspect_ratio(leftEye)
+    rightEAR = eye_aspect_ratio(rightEye)
 
     if show:
         leftEyeHull = cv2.convexHull(leftEye)
@@ -132,6 +171,7 @@ def handle_blink(client, shape, frame, show):
 
     ear = (leftEAR + rightEAR) / 2.0
     return ear
+
 
 def calib_eye(left, right, eye, calib_count):
     images = []
@@ -171,20 +211,101 @@ def calib_eye(left, right, eye, calib_count):
 
 
 def get_keypoints_calib(image, threshold):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    (x,y,w,h) = cv2.boundingRect(gray)
-    gray = imutils.resize(gray, width=int(w * 3), height=int(h * 3), inter=cv2.INTER_CUBIC)
-    _, thres = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
-    blur = cv2.medianBlur(thres, 1)
-
-    keypoints = client.blob_detector.detect(blur)
+    img, gray, w, h = image_preprocess(image, threshold)
+    keypoints = blob_detector.detect(img)
     if keypoints:
-        if keypoints[0].pt[0] >= w*0.7 and keypoints[0].pt[0] >= h*0.33 and keypoints[0].size < 10:
+        if keypoints[0].pt[0] >= w * 0.7 and keypoints[0].pt[0] >= h * 0.33 and keypoints[0].size < 10:
             image_k = cv2.drawKeypoints(gray, keypoints, gray, (0, 0, 255),
                                         cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             return (image_k, threshold, keypoints[0].pt, keypoints[0].size)
 
     return None
+
+
+##################### main program #########################
+def run_with_server(HOST='localhost', PORT=8080):
+    ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        conn = ServerSocket.connect((HOST, PORT))
+        print('Connection Established')
+        while run:
+            print('connection true')
+            cap = cv2.VideoCapture(0)
+            client.socket = ServerSocket
+
+            blink_start_t = time.time()
+            blink_counter = 0
+
+            while run:
+                _, frame = cap.read()
+                frame = imutils.resize(frame, width=500, height=500)
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+                # detect face
+                rects = face_detector(gray, 0)
+
+                for rect in rects:
+                    # detect sense organs
+                    shape = predictor(gray, rect)
+                    shape = face_utils.shape_to_np(shape)
+
+                    # get eyes
+                    left_eye = extract_eye(frame, shape, lStart, lEnd)
+                    right_eye = extract_eye(frame, shape, rStart, rEnd)
+                    # detect pupil size
+                    left_size, right_size = blob_process_both_eyes(left_eye, right_eye)
+
+                    client.time = time.time()
+                    client.left_pupil = left_size if left_size is not None else 0
+                    client.right_pupil = right_size if right_size is not None else 0
+
+                    # print(client.left_pupil, client.right_pupil, 'data updated!!')
+
+                    # detecting blink
+                    leftEye = shape[lStart: lEnd]
+                    rightEye = shape[rStart: rEnd]
+                    leftEAR = eye_aspect_ratio(leftEye)
+                    rightEAR = eye_aspect_ratio(rightEye)
+
+                    ear = (leftEAR + rightEAR) / 2.0
+                    # print(ear)
+
+                    if ear < EYE_AR_THRESH:
+                        blink_counter += 1
+                        # otherwise, the eye aspect ratio is not below the blink
+                        # threshold
+                    else:
+                        # if the eyes were closed for a sufficient number of
+                        # then increment the total number of blinks
+                        if blink_counter >= EYE_AR_CONSEC_FRAMES:
+                            client.blink_count += 1
+                            # print('[*BLINK*] blink_count=', client.blink_count)
+                        # reset the eye frame counter
+                        blink_counter = 0
+
+                    if time.time() - blink_start_t >= 10:
+                        # print('create new process with new  -------> ')
+                        client.send_data(blink=True)
+                        # # print('create new process', comm_p)
+                        # # print('sent blink')
+                        # comm_p.start()
+                        # comm_p.join()
+
+                        client.blink_count = 0
+                        blink_start_t = time.time()
+                    elif not (client.left_pupil == 0 and client.right_pupil == 0):
+                        # print('create new process with new  -------> ')
+                       client.send_data()
+                        # print('create new process', comm_p)
+                        # comm_p.start()
+                        # comm_p.join()
+
+    except socket.error as err:
+        print(err)
+    finally:
+        exit(0)
+
 
 def run_standalone():
     root = Tkinter.Tk()
@@ -193,7 +314,6 @@ def run_standalone():
     tkMessageBox.showinfo('Calibration', 'Please open your eyes and stay for 1 second.\nWhen you ready, press Any Key')
 
     cap = cv2.VideoCapture(0)
-    client = Client()
     client.start_time = time.time()
     blink_counter = 0
 
@@ -218,8 +338,8 @@ def run_standalone():
             shape = predictor(gray, rect)
             shape = face_utils.shape_to_np(shape)
 
-            #detect blink
-            ear = handle_blink(client, shape, frame, show_hull)
+            # detect blink
+            ear = handle_blink(shape, frame, show_hull)
 
             if EAR_UNCHANGED < 3:
                 MAX_EAR = max(MAX_EAR, ear)
@@ -254,28 +374,28 @@ def run_standalone():
 
             # get eyes
             if calib == 1 and left:
-                left_eye = client.extract_eye(frame, shape, lStart, lEnd)
+                left_eye = extract_eye(frame, shape, lStart, lEnd)
                 r1, r2, calib_count = calib_eye(left, right, left_eye, calib_count)
                 if r1 is not None and r2 is not None:
                     left = r1
-                    right = r2 # finish left eye
+                    right = r2  # finish left eye
                     tkMessageBox.showinfo('Calibration', 'Left eye done!')
 
             elif calib == 1 and right:
-                right_eye = client.extract_eye(frame, shape, rStart, rEnd)
+                right_eye = extract_eye(frame, shape, rStart, rEnd)
                 r1, r2, calib_count = calib_eye(left, right, right_eye, calib_count)
                 if r1 is not None and r2 is not None:
                     left = r1
-                    right = r2 # finish right eye
-                    calib = 2 # finish eye calibration
+                    right = r2  # finish right eye
+                    calib = 2  # finish eye calibration
                     client.set_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right)
                     tkMessageBox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
 
             if calib == 2:
                 # detect pupil size
-                left_eye = client.extract_eye(frame, shape, lStart, lEnd)
-                right_eye = client.extract_eye(frame, shape, rStart, rEnd)
-                left_size, right_size = client.blob_process_both_eyes(left_eye, right_eye)
+                left_eye = extract_eye(frame, shape, lStart, lEnd)
+                right_eye = extract_eye(frame, shape, rStart, rEnd)
+                left_size, right_size = blob_process_both_eyes(left_eye, right_eye)
 
                 client.time = time.time()
                 if left_size is not None:
@@ -283,7 +403,7 @@ def run_standalone():
                 if right_size is not None:
                     client.right_pupil = right_size
 
-            client.show_text(frame, ear, time.time())
+            show_text(frame, ear, time.time())
 
         cv2.imshow('Frame', frame)
         key = cv2.waitKey(1) & 0xFF
