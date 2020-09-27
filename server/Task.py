@@ -16,5 +16,6 @@ class Task:
         print('left pupil: {}'.format(self.left_pupil),
               'right pupil: {}'.format(self.right_pupil),
               'blink count: {}'.format(self.blink_count),
+              'error: {}'.format(self.error),
               'time: {}'.format(self.time))
 

@@ -13,8 +13,9 @@ class Task:
         return [self.time, self.left_pupil, self.right_pupil, self.mean, self.blink_count, self.error]
 
     def toString(self):
-        print('\nleft pupil: ', {self.left_pupil},
-              '\nright pupil: ', {self.right_pupil},
-              '\nblink count: ', {self.blink_count},
-              '\ntime: ', {self.time})
+        print('left pupil: {}'.format(self.left_pupil),
+              'right pupil: {}'.format(self.right_pupil),
+              'blink count: {}'.format(self.blink_count),
+              'error: {}'.format(self.error),
+              'time: {}'.format(self.time))
 

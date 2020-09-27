@@ -1,6 +1,4 @@
-from client import Client
 import socket
-import threading
 from imutils import face_utils
 import imutils
 import cv2
@@ -12,8 +10,7 @@ import Tkinter
 import tkMessageBox
 from scipy.spatial import distance as dist
 import numpy as np
-
-client = Client()
+from client import Client
 
 face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
 face_detector = dlib.get_frontal_face_detector()
@@ -37,9 +34,8 @@ blob_detector = cv2.SimpleBlobDetector_create(detector_params)
 global run
 run = True
 
-def set_client(c):
-    global client
-    client = c
+global client
+client = Client()
 
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))

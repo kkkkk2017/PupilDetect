@@ -3,7 +3,6 @@ import taskProgram
 import client_proxyl
 from multiprocessing import Process
 
-global client
 global task
 global root
 
@@ -18,15 +17,15 @@ def start_program():
     client.join()
     task.join()
 
+def export_error():
+    errors = taskProgram.get_error_list()
+    print(errors)
 
 def terminate():
-    # task.terminate()
-    # client.terminate()
-    # root.destroy()
     exit(0)
 
 def main():
-    global root
+
     root = Tk()
     root.title('Pupil Detector')
     root.resizable(0, 0)
@@ -38,6 +37,10 @@ def main():
     start = Button(text='START', fg='dark green', bg='white', width=20, font=('calibri', 13, 'bold'),
                    command=start_program)
     start.pack()
+
+    export = Button(text='EXPORT', fg='grey', bg='white', width=20, font=('calibri', 13, 'bold'),
+                    command=export_error)
+    export.pack()
 
     quit = Button(text='QUIT', fg='red', bg='white', width=20, font=('calibri', 13, 'bold'),
                   command=terminate)
