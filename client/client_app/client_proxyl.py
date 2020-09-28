@@ -37,9 +37,6 @@ blob_detector = cv2.SimpleBlobDetector_create(detector_params)
 global run
 run = True
 
-def set_client(c):
-    global client
-    client = c
 
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))

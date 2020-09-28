@@ -26,7 +26,7 @@ def terminate():
     exit(0)
 
 def main():
-    global root
+
     root = Tk()
     root.title('Pupil Detector')
     root.resizable(0, 0)
