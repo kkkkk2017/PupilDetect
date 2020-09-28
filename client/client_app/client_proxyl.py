@@ -10,8 +10,8 @@ import Tkinter
 import tkMessageBox
 from scipy.spatial import distance as dist
 import numpy as np
-from client import Client
-import threading
+import pickle
+from Task import Task
 
 face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
 face_detector = dlib.get_frontal_face_detector()
@@ -35,18 +35,6 @@ blob_detector = cv2.SimpleBlobDetector_create(detector_params)
 global run
 run = True
 
-global client
-
-def initial_client():
-    global client
-    client = Client()
-    print(client)
-
-def get_client():
-    if client:
-        print(client)
-        return client
-
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
     roi = frame[y:(y + h), x:(x + w)]
@@ -63,7 +51,7 @@ def eye_aspect_ratio(eye):
     return ear
 
 
-def show_text(frame, ear, time):
+def show_text(client, frame, ear, time):
     cv2.putText(frame, "Blinks: {}".format(client.blink_count), (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
     cv2.putText(frame, "EAR:{:.2f}".format(ear), (10, 50),
@@ -92,7 +80,8 @@ def image_preprocess(image, threshold):
     blur = cv2.medianBlur(thres, 1)
     return blur, image, w, h
 
-def get_keypoints(image, threshold, side):
+
+def get_keypoints(client, image, threshold, side):
     if side == 0:
         min_x = client.left_x[0] if client.left_x else 0
         max_x = client.left_x[1] if client.left_x else 20
@@ -122,18 +111,18 @@ def get_keypoints(image, threshold, side):
     return None
 
 
-def blob_process(eye, side):
+def blob_process(client, eye, side):
     optimal = []
 
     if side == 0:  # 0 - left side
-        start_threshold = client.left_threshold[0] if client.left_threshold is not None else 10
-        end_threshold = client.left_threshold[1] if client.left_threshold is not None else 130
+        start_threshold = client.left_threshold[0] #if client.left_threshold is not None else 10
+        end_threshold = client.left_threshold[1] #if client.left_threshold is not None else 130
     if side == 1:  # 1 - right side
-        start_threshold = client.right_threshold[0] if client.right_threshold is not None else 10
-        end_threshold = client.right_threshold[1] if client.right_threshold is not None else 130
+        start_threshold = client.right_threshold[0] #if client.right_threshold is not None else 10
+        end_threshold = client.right_threshold[1] #if client.right_threshold is not None else 130
 
     for thres in range(start_threshold, end_threshold):
-        area = get_keypoints(image=eye, threshold=thres, side=side)
+        area = get_keypoints(client=client, image=eye, threshold=thres, side=side)
         if area:
             if area < 10:
                 optimal.append(area)
@@ -150,9 +139,9 @@ def blob_process(eye, side):
     return None
 
 
-def blob_process_both_eyes(left_eye, right_eye):
-    left_optimal = blob_process(left_eye, 0)
-    right_optimal = blob_process(right_eye, 1)
+def blob_process_both_eyes(client, left_eye, right_eye):
+    left_optimal = blob_process(client, left_eye, 0)
+    right_optimal = blob_process(client, right_eye, 1)
 
     # # print('left', left_optimal, 'right', right_optimal)
     # if left_optimal is not None or right_optimal is not None:
@@ -204,13 +193,13 @@ def calib_eye(left, right, eye, calib_count):
                 if len(pre_pupil_data_left) >= 5:
                     left = False
                     right = True
-                    return left, right, 10
+                    return left, right, 5
             if right:
                 pre_pupil_data_right.append(i[1:])
                 if len(pre_pupil_data_right) >= 5:
                     left = False
                     right = False
-                    return left, right, 10
+                    return left, right, 5
 
         cv2.destroyWindow('image')
     return None, None, calib_count
@@ -228,25 +217,64 @@ def get_keypoints_calib(image, threshold):
     return None
 
 
+def read_control():
+    control_file = path.join(path.dirname(__file__), 'control.txt')
+    with open(control_file, 'r') as f:
+        lines = f.readline(1)
+        f.close()
+        return lines[0]
+
+
+def read_error_list():
+    file = path.join(path.dirname(__file__), 'error_list.txt')
+    with open(file, 'r') as f:
+        lines = f.readlines()
+        f.close()
+    return lines
+
+
+def send_data(client, socket, blink=False):
+    if blink:
+        data = Task(client.time, client.left_pupil / 3 if client.left_pupil != 0 else 0,
+                    client.right_pupil / 3 if client.right_pupil != 0 else 0, blink=client.blink_count, error=0)
+        obj = pickle.dumps(data)
+        socket.sendall(b'[D]' + obj)
+    else:
+        if client.left_pupil == 0 and client.right_pupil == 0:
+            return
+        else:
+            data = Task(client.time, client.left_pupil / 3 if client.left_pupil != 0 else 0,
+                        client.right_pupil / 3 if client.right_pupil != 0 else 0, blink=np.nan, error=0)
+            obj = pickle.dumps(data)
+            socket.sendall(b'[D]' + obj)
+    time.sleep(0.5)
+
+
 ##################### main program #########################
-def run_with_server(HOST='172.17.253.113', PORT=8080):
-    print('run with server')
+def run_with_server(HOST='localhost', PORT=8080, client=None):
     try:
+        print(client)
         ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print(ServerSocket)
-        ServerSocket.connect((HOST, PORT))
+        conn = ServerSocket.connect((HOST, PORT))
         print('Connection Established')
+        run = '1'
+
         while True:
-            print('Connection true')
+
+            if run == '0':
+                break
+
             cap = cv2.VideoCapture(0)
 
             client.socket = ServerSocket
             blink_start_t = time.time()
             blink_counter = 0
 
-            while True:
+            while (run == '1'):
+
+                run = read_control()
+
                 _, frame = cap.read()
-                print('Video Start')
                 frame = imutils.resize(frame, width=500, height=500)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -262,7 +290,7 @@ def run_with_server(HOST='172.17.253.113', PORT=8080):
                     left_eye = extract_eye(frame, shape, lStart, lEnd)
                     right_eye = extract_eye(frame, shape, rStart, rEnd)
                     # detect pupil size
-                    left_size, right_size = blob_process_both_eyes(left_eye, right_eye)
+                    left_size, right_size = blob_process_both_eyes(client, left_eye, right_eye)
 
                     client.time = time.time()
                     client.left_pupil = left_size if left_size is not None else 0
@@ -293,30 +321,27 @@ def run_with_server(HOST='172.17.253.113', PORT=8080):
                         blink_counter = 0
 
                     if time.time() - blink_start_t >= 10:
-                        # print('create new process with new  -------> ')
-                        # comm_p = threading.Thread(target=client.send_data(blink=True))
-                        client.send_data(blink=True)
-                        # print('create new process', comm_p)
-                        # print('sent blink')
-                        # comm_p.start()
-                        # comm_p.join()
-
+                        send_data(client=client, socket=ServerSocket, blink=True)
                         client.blink_count = 0
                         blink_start_t = time.time()
                     elif not (client.left_pupil == 0 and client.right_pupil == 0):
-                        # comm_p = threading.Thread(target=client.send_data(blink=False))
-                        client.send_data()
-                        # print('create new process', comm_p)
-                        # comm_p.start()
-                        # comm_p.join()
+                        send_data(client=client, socket=ServerSocket)
+
+            errors = read_error_list()
+            obj = pickle.dumps(errors)
+            ServerSocket.sendall(b'[E]' + obj)
+
 
     except socket.error as err:
         print(err)
+
     finally:
-        exit(0)
+        ServerSocket.close()
 
 
-def run_standalone():
+def run_standalone(client):
+    print(client)
+
     root = Tkinter.Tk()
     root.withdraw()
 
@@ -333,7 +358,7 @@ def run_standalone():
     left = True
     right = False
     show_hull = True
-    calib_count = 10
+    calib_count = 5
 
     while True:
         _, frame = cap.read()
@@ -404,7 +429,7 @@ def run_standalone():
                 # detect pupil size
                 left_eye = extract_eye(frame, shape, lStart, lEnd)
                 right_eye = extract_eye(frame, shape, rStart, rEnd)
-                left_size, right_size = blob_process_both_eyes(left_eye, right_eye)
+                left_size, right_size = blob_process_both_eyes(client, left_eye, right_eye)
 
                 client.time = time.time()
                 if left_size is not None:
@@ -412,7 +437,7 @@ def run_standalone():
                 if right_size is not None:
                     client.right_pupil = right_size
 
-            show_text(frame, ear, time.time())
+            show_text(client, frame, ear, time.time())
 
         cv2.imshow('Frame', frame)
         key = cv2.waitKey(1) & 0xFF
@@ -422,7 +447,8 @@ def run_standalone():
 
     cap.release()
     cv2.destroyAllWindows()
-
+    client.reset()
+    return client
 
 if __name__ == '__main__':
     my_parser = argparse.ArgumentParser(description='run method')

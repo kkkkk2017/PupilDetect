@@ -5,12 +5,10 @@ import sys
 import Queue
 import time
 import csv
-# import matplotlib.pyplot as plt
-# import matplotlib.patches as mpatches
 
 OK = b'ok'
 
-HOST = 'localhost'
+HOST = '172.17.253.113'
 # HOST='localhost'
 PORT = 8080
 
@@ -24,6 +22,7 @@ input_queue = Queue.Queue()
 def receive_error_list(data):
     print('REV [ERROR-LIST] --->')
     data = pickle.loads(data[3:])
+    print(data)
     f = open('data/error_list.csv', 'w')
     with f:
         writer = csv.writer(f)
@@ -49,7 +48,7 @@ def receive_data(data, append_data, index):
     if append_data:
         tasks.append(data)
         print('[APPEND]')
-        print(tasks)
+        print(len(tasks), 'Tasks Data')
         index+=1
 
     else:
@@ -93,7 +92,8 @@ def run(conn, task_num):
                         index = receive_data(data, append_data, index)
                         last_update = time.time()
                     elif data.__contains__(b'[E]'):
-                        receive_error_list()
+                        print('receive error')
+                        receive_error_list(data)
                         last_update = time.time()
 
             if not input_queue.empty():
@@ -121,7 +121,7 @@ def run(conn, task_num):
                     break
 
                 elif msg == 'exit':
-                    exit(0)
+                    break
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setblocking(1)
@@ -141,3 +141,5 @@ while True:
         run(conn, task_num)
     except socket.error as err:
         print(err)
+    finally:
+        exit(0)

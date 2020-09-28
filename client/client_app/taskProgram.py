@@ -2,21 +2,23 @@ from Tkinter import *
 import os.path as path
 import random
 import time
+import csv
 
 global width
 global height
 global prac_task
 global instructions
+
 global error_list
 error_list = []
 
 tasks = ['0-back', '1-back', '1-back-speed', '2-back', '2-back-speed']
 
 prac_task = {
-    '1-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O'],
-    '1-back-speed prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O'],
-    '2-back prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
-    '2-back-speed prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
+    '1-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
+    '1-back-speed prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
+    '2-back prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O',],
+    '2-back-speed prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O',],
 }
 
 instructions = {
@@ -81,10 +83,6 @@ class Application(Frame):
         self.instru_frame.pack()
         self.pack()
 
-    def get_error_list(self):
-        result = error_list
-        return result
-
     def check_answer(self, event):
         ans = event.char
         if ans is not None:
@@ -121,7 +119,7 @@ class Application(Frame):
         self.error_made += 1
         self.error_label.config(text='| Errors: ' + str(self.error_made))
         if not self.if_prac:
-            self.errors.append(time.time())
+            self.errors.append(str(time.time()))
 
     def read_tasks(self):
         level = self.level_to_string()
@@ -142,6 +140,15 @@ class Application(Frame):
         return dict.get(self.current_level)
 
     def terminate(self):
+        # print(self.errors)
+        # write(self.errors)
+        store_error_list(self.errors)
+
+        control_file = path.join(path.dirname(__file__), 'control.txt')
+        with open(control_file, 'w') as f:
+            f.write('0')
+            f.close()
+
         self.master.destroy()
 
     def create_frame(self):
@@ -174,7 +181,7 @@ class Application(Frame):
     def prepare_task(self):
         self.task_labels=[]
         for i in range(10):
-            label = Label(self.task_frame, font=('calibri', 100, 'bold'), text=' ', fg='white', padx=33)
+            label = Label(self.task_frame, font=('calibri', 100, 'bold'), text=' ', fg='white', padx=30)
             label.config(bg='white')
             label.pack({'side': 'left'})
             self.task_labels.append(label)
@@ -211,8 +218,6 @@ class Application(Frame):
 
             else:
                 self.label.config(text='\nCOMPLETED!!\n', font=('Lucida Grande', 100, 'bold'), pady=200)
-                global error_list
-                error_list = self.errors
                 self.speed_2 = True
 
         # a hidden task (2-back-speed)
@@ -275,12 +280,17 @@ class Application(Frame):
             self.t += 1
             self.label.after(interval, self.start_task)
 
-        else:
+        elif self.t - 2 == len(letters):
             # hide task frame
             self.task_frame.place(x=0, y=100)
             # self.task_labels[self.t - 3].config(fg='white')
             self.task_labels[9].config(fg='white')
             self.label.config(text='End', fg='black')
+            self.t += 1
+            self.label.after(1000, self.start_task)
+        else:
+            if not self.if_prac:
+                self.label.config(text='Take a Break', fg='black')
 
             self.prev_letter = None
             self.current_letter = None
@@ -294,6 +304,7 @@ class Application(Frame):
             if self.speed_2:
                 global error_list
                 error_list = self.errors
+
 
     def show_label(self, current, letter):
         label = current % 10 #[0-9]
@@ -318,10 +329,21 @@ class Application(Frame):
         self.task_labels[label].config(fg='black', text=letter)
 
 
+def store_error_list(error_list):
+    control_file = path.join(path.dirname(__file__), 'error_list.txt')
+    with open(control_file, 'w') as f:
+        if error_list:
+            for i in error_list:
+                f.write(i+'\n')
+    f.close()
 
-def get_error_list():
-    print('complete get')
-    return error_list
+def write(error_list):
+    f = open('../../server/data/error_list.csv', 'w')
+    with f:
+        writer = csv.writer(f)
+        if error_list:
+            writer.writerow([i for i in error_list])
+            print('[CSV] DONE!' + f.name)
 
 def run():
     root = Tk()

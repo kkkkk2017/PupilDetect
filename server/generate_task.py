@@ -20,7 +20,7 @@ for i in range(5):
             total = 3*60/2
 
         for i in range(total):
-            num = random.randint(0, 25)
+            num = random.randint(0, 14)
             let = letters[num]
             f.write(let+'\n')
         f.close()

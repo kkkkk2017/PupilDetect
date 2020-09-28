@@ -1,8 +1,3 @@
-import pickle
-import numpy as np
-import time
-from Task import Task
-
 class Client:
     def __init__(self):
         self.start_time = 0  # the time of starting the task
@@ -19,25 +14,11 @@ class Client:
         self.right_x = None
         self.right_y = None
 
-    def send_error(self, error_list):
-        obj = pickle.dumps(error_list)
-        self.socket.sendall(b'[E]' + obj)
-
-    def send_data(self, blink=False):
-        if blink:
-            data = Task(self.time, self.left_pupil / 3 if self.left_pupil != 0 else 0,
-                        self.right_pupil / 3 if self.right_pupil != 0 else 0, blink=self.blink_count, error=0)
-            obj = pickle.dumps(data)
-            self.socket.sendall(b'[D]' + obj)
-        else:
-            if self.left_pupil == 0 and self.right_pupil == 0:
-                return
-            else:
-                data = Task(self.time, self.left_pupil / 3 if self.left_pupil != 0 else 0,
-                            self.right_pupil / 3 if self.right_pupil != 0 else 0, blink=np.nan, error=0)
-                obj = pickle.dumps(data)
-                self.socket.sendall(b'[D]' + obj)
-        time.sleep(0.5)
+    def reset(self):
+        self.blink_count = 0
+        self.left_pupil = 0
+        self.right_pupil = 0
+        self.start_time = 0
 
     def set_filtering(self, pre_left, pre_right):
         pre_x = [i[1][0] for i in pre_left]
