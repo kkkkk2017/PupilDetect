@@ -11,6 +11,7 @@ import tkMessageBox
 from scipy.spatial import distance as dist
 import numpy as np
 from client import Client
+import threading
 
 face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
 face_detector = dlib.get_frontal_face_detector()
@@ -35,7 +36,16 @@ global run
 run = True
 
 global client
-client = Client()
+
+def initial_client():
+    global client
+    client = Client()
+    print(client)
+
+def get_client():
+    if client:
+        print(client)
+        return client
 
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
@@ -219,22 +229,24 @@ def get_keypoints_calib(image, threshold):
 
 
 ##################### main program #########################
-def run_with_server(HOST='localhost', PORT=8080):
-    ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+def run_with_server(HOST='172.17.253.113', PORT=8080):
+    print('run with server')
     try:
-        conn = ServerSocket.connect((HOST, PORT))
+        ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(ServerSocket)
+        ServerSocket.connect((HOST, PORT))
         print('Connection Established')
-        while run:
-            print('connection true')
+        while True:
+            print('Connection true')
             cap = cv2.VideoCapture(0)
-            client.socket = ServerSocket
 
+            client.socket = ServerSocket
             blink_start_t = time.time()
             blink_counter = 0
 
-            while run:
+            while True:
                 _, frame = cap.read()
+                print('Video Start')
                 frame = imutils.resize(frame, width=500, height=500)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -282,17 +294,18 @@ def run_with_server(HOST='localhost', PORT=8080):
 
                     if time.time() - blink_start_t >= 10:
                         # print('create new process with new  -------> ')
+                        # comm_p = threading.Thread(target=client.send_data(blink=True))
                         client.send_data(blink=True)
-                        # # print('create new process', comm_p)
-                        # # print('sent blink')
+                        # print('create new process', comm_p)
+                        # print('sent blink')
                         # comm_p.start()
                         # comm_p.join()
 
                         client.blink_count = 0
                         blink_start_t = time.time()
                     elif not (client.left_pupil == 0 and client.right_pupil == 0):
-                        # print('create new process with new  -------> ')
-                       client.send_data()
+                        # comm_p = threading.Thread(target=client.send_data(blink=False))
+                        client.send_data()
                         # print('create new process', comm_p)
                         # comm_p.start()
                         # comm_p.join()

@@ -318,6 +318,11 @@ class Application(Frame):
         self.task_labels[label].config(fg='black', text=letter)
 
 
+
+def get_error_list():
+    print('complete get')
+    return error_list
+
 def run():
     root = Tk()
     width = root.winfo_screenwidth()
@@ -330,10 +335,14 @@ def run():
     app = Application(root)
     app.mainloop()
 
-def get_error_list():
-    print('complete get')
-    return error_list
-
-
 if __name__ == '__main__':
-    run()
+    root = Tk()
+    width = root.winfo_screenwidth()
+    height = root.winfo_screenwidth()
+
+    root.title('N-Back Tasks')
+    root.geometry(str(width) + 'x' + str(height))
+    root.resizable(0, 0)
+
+    app = Application(root)
+    app.mainloop()

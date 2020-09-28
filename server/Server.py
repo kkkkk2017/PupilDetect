@@ -10,7 +10,7 @@ import csv
 
 OK = b'ok'
 
-HOST = '172.17.253.113'
+HOST = 'localhost'
 # HOST='localhost'
 PORT = 8080
 
@@ -21,6 +21,16 @@ end_t = []
 global input_queue
 input_queue = Queue.Queue()
 
+def receive_error_list(data):
+    print('REV [ERROR-LIST] --->')
+    data = pickle.loads(data[3:])
+    f = open('data/error_list.csv', 'w')
+    with f:
+        writer = csv.writer(f)
+        if data:
+            writer.writerow([i for i in data])
+            print('[CSV] DONE!' + f.name)
+
 def write_to_csv(task_num):
     f = open('data/task_' + str(task_num) + '.csv', 'w')
     with f:
@@ -29,21 +39,18 @@ def write_to_csv(task_num):
             writer.writerow(['time', 'left_pupil', 'right_pupil', 'mean', 'blink_count', 'error'])
             for t in tasks:
                 writer.writerow([i for i in t.toList()])
-            print('csv done.' + f.name)
+            print('[CSV] DONE!' + f.name)
 
 
-def receive_data(data, append_data, index, error):
+def receive_data(data, append_data, index):
     print('REV--->')
     data = pickle.loads(data[3:])
     data.toString()
     if append_data:
-        if error:
-            data.error = 1
         tasks.append(data)
-        print('append')
+        print('[APPEND]')
         print(tasks)
         index+=1
-        # virtualise_data(fig, ax, index, data.left_pupil, data.right_pupil, data.mean)
 
     else:
         print('not append')
@@ -56,17 +63,6 @@ def add_input(input_queue):
         input_queue.put(msg)
 
 
-# def create_fig():
-#     fig, ax = plt.subplots()
-#     legend_element = [mpatches.Patch(color='blue', label='Left pupil', linestyle='-', linewidth=0.5),
-#                       mpatches.Patch(color='green', label='Right pupil', linestyle='-', linewidth=0.5),
-#                       mpatches.Patch(color='red', label='Mean', linestyle='--', linewidth=0.5)]
-#     ax.legend(handles=legend_element, loc='upper_left')
-#     ax.set_ylim(bottom=0, top=15)
-#     ax.set_title('Pupil Dilation')
-#     return fig, ax
-
-
 def virtualise_data(fig, ax, i, ld, rd, m):
     # draw graph
     ax.scatter([i], [ld], color='green')
@@ -75,16 +71,6 @@ def virtualise_data(fig, ax, i, ld, rd, m):
     fig.canvas.draw()
     print('draw')
 
-def draw_line(fig, ax):
-    if tasks:
-        left_pupil = [i.left_pupil for i in tasks]
-        right_pupil = [i.right_pupil for i in tasks]
-        mean = [i.mean for i in tasks]
-
-        ax.plot([i for i in range(len(left_pupil))], left_pupil, '-g')
-        ax.plot([i for i in range(len(right_pupil))], right_pupil, '-b')
-        ax.plot([i for i in range(len(mean))], mean, '-r')
-    return fig, ax
 
 def run(conn, task_num):
     # print('create send_message thread')
@@ -94,9 +80,7 @@ def run(conn, task_num):
 
     append_data = False
     terminate = False
-    error = False
 
-    # fig, ax = create_fig()
     index = 0
 
     while not terminate:
@@ -106,9 +90,11 @@ def run(conn, task_num):
                 data = conn.recv(1024)
                 if data:
                     if data.__contains__(b'[D]'):
-                        index = receive_data(data, append_data, index, error)
+                        index = receive_data(data, append_data, index)
                         last_update = time.time()
-                        error = False
+                    elif data.__contains__(b'[E]'):
+                        receive_error_list()
+                        last_update = time.time()
 
             if not input_queue.empty():
                 msg = input_queue.get()
@@ -119,11 +105,6 @@ def run(conn, task_num):
                     task_num+=1
                     print(start_t)
                     append_data = True
-                    error = False
-
-                elif msg == 'e':
-                    error = True
-                    print('made error')
 
                 elif msg == 'n': # next task
                     end_t.append(time.time())
@@ -141,9 +122,6 @@ def run(conn, task_num):
 
                 elif msg == 'exit':
                     exit(0)
-
-            # fig, ax = draw_line(fig, ax)
-            # fig.show()
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setblocking(1)

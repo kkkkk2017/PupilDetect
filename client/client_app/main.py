@@ -8,23 +8,28 @@ global root
 
 def start_program():
     #172.17.253.113
-    client = Process(name='client', target=client_proxyl.run_with_server, args=(('172.17.253.113', 8080)))
-    task = Process(name='task', target=taskProgram.run, args=())
+    client = Process(name='client', target=client_proxyl.run_with_server, args=(('localhost', 8080)))
+    # task = Process(name='task', target=taskProgram.run(), args=())
 
     client.start()
-    task.start()
+    # task.start()
 
     client.join()
-    task.join()
+    # task.join()
 
 def export_error():
+    client = client_proxyl.get_client()
     errors = taskProgram.get_error_list()
     print(errors)
+    if client:
+        client.send_error(errors)
+    tkinter.tkMessageBox.showinfo('EXPORT', 'DONE!')
 
 def terminate():
     exit(0)
 
 def main():
+    client_proxyl.initial_client()
 
     root = Tk()
     root.title('Pupil Detector')

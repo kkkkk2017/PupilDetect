@@ -18,13 +18,10 @@ class Client:
         self.left_y = None
         self.right_x = None
         self.right_y = None
-        self.error = 0
 
-    def send_error(self):
-        data = Task(self.time, self.left_pupil / 3 if self.left_pupil != 0 else 0,
-                    self.right_pupil / 3 if self.right_pupil != 0 else 0, blink=np.nan, error=1)
-        obj = pickle.dumps(data)
-        self.socket.sendall(b'[D]' + obj)
+    def send_error(self, error_list):
+        obj = pickle.dumps(error_list)
+        self.socket.sendall(b'[E]' + obj)
 
     def send_data(self, blink=False):
         if blink:
