@@ -7,20 +7,21 @@ from collections import Counter
 
 def input_data(file_1, file_2):
     df = pandas.read_csv(file_1)
-    if file_2.__contains__('.csv'):
-        tdf = pandas.read_csv(file_2)
-        tobii_left = tdf['left_pupil']
-        tobii_right = tdf['right_pupil']
-        tobii_mean = tdf['mean']
-    else:
-        tdf = pandas.read_excel(file_2, index_col=0, sheet_name='Data')
-        tobii_left = tdf['Pupil diameter left [mm]'][:len(df['left_pupil'])]
-        tobii_right = tdf['Pupil diameter right [mm]'][:len(df['left_pupil'])]
-        tobii_mean = []
-        for i, c in zip(tobii_left, tobii_right):
-            tobii_mean.append(np.mean((i, c)))
 
-    return df, tobii_left, tobii_right, tobii_mean
+    # if file_2.__contains__('.csv'):
+    #     tdf = pandas.read_csv(file_2)
+    #     tobii_left = tdf['left_pupil']
+    #     tobii_right = tdf['right_pupil']
+    #     tobii_mean = tdf['mean']
+    # else:
+    #     tdf = pandas.read_excel(file_2, index_col=0, sheet_name='Data')
+    #     tobii_left = tdf['Pupil diameter left [mm]'][:len(df['left_pupil'])]
+    #     tobii_right = tdf['Pupil diameter right [mm]'][:len(df['left_pupil'])]
+    #     tobii_mean = []
+    #     for i, c in zip(tobii_left, tobii_right):
+    #         tobii_mean.append(np.mean((i, c)))
+
+    return df, [], [], []
 
 def draw_raw_data(df, tobii_left, tobii_right, tobii_mean):
     # print(tdf.columns)
@@ -75,12 +76,12 @@ def read_input(df):
     left = []
     right = []
     mean = []
-    for i in range(total_index):
-        num = left_list.get(i)
-        if num:
-            left.append(num)
-        else:
-            left.append(0)
+    # for i in range(total_index):
+    #     num = left_list.get(i)
+    #     if num:
+    #         left.append(num)
+    #     else:
+    #         left.append(0)
 
         # num2 = right_list.get(i)
         # if num2:
@@ -97,7 +98,7 @@ def read_input(df):
         # else:
         #     mean.append(0)
 
-    return left, right, mean
+    return left_list, right_list, mean
 
 def add_num(arr, time, num1, num2):
     if num1 == 0 and num2 != 0:
@@ -194,46 +195,9 @@ def sort_dict(dict):
         if value != 0:
             x.append(i)
             y.append(value)
+    print(len(x))
     return x, y
 
-def draw_precentage2(left_pupil, right_pupil, mean_pupil, tobii_left, tobii_right, tobii_mean):
-    print('open_cv left: ')
-    comp_left = cal_delta2(left_pupil)
-    print('open_cv right: ')
-    comp_right = cal_delta2(right_pupil)
-    print('open_cv mean: ')
-    comp_mean = cal_delta2(mean_pupil)
-
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-
-    x_1 = comp_left.keys()
-    x_2 = comp_right.keys()
-    x_3 = comp_mean.keys()
-
-    left_x, left_y = sort_dict(comp_left)
-    right_x, right_y = sort_dict(comp_right)
-    mean_x, mean_y = sort_dict(comp_mean)
-
-    ax1.plot(np.zeros(max(left_x)), color='red', label='y=0')
-    ax2.plot(np.zeros(max(right_x)), color='red', label='y=0')
-    ax3.plot(np.zeros(max(mean_x)), color='red', label='y=0')
-
-    ax1.plot(left_x, left_y, color='green', label='file 1 left_pupil_dilation')
-    ax2.plot(right_x, right_y, color='blue', label='file 1 right_pupil_dilation')
-    ax3.plot(mean_x, mean_y, color='pink', label='file 1 mean')
-
-    ax1.scatter(comp_left.keys(), comp_left.values(), color='purple', s=1)
-    ax2.scatter(comp_right.keys(), comp_right.values(), color='purple', s=1)
-    ax3.scatter(comp_mean.keys(), comp_mean.values(), color='purple', s=1)
-
-    ax1.legend(loc='upper right')
-    ax2.legend(loc='upper right')
-    ax3.legend(loc='upper right')
-
-    ax1.grid()
-    ax2.grid()
-    ax3.grid()
-    plt.show()
 
 if __name__ == '__main__':
     my_parser = argparse.ArgumentParser(description='filenames')
@@ -245,5 +209,44 @@ if __name__ == '__main__':
     args = my_parser.parse_args()
     df, tobii_left, tobii_right, tobii_mean = input_data(args.file_1, args.file_2)
     left_pupil, right_pupil, mean_pupil = read_input(df)
-    draw_precentage2(left_pupil, right_pupil, mean_pupil, tobii_left, tobii_right, tobii_mean)
-    # draw_precentage(df, tobii_left, tobii_right, tobii_mean)
+
+    # print('open_cv left: ')
+    # comp_left = cal_delta2(left_pupil)
+    # print('open_cv right: ')
+    # comp_right = cal_delta2(right_pupil)
+    # print('open_cv mean: ')
+    # comp_mean = cal_delta2(mean_pupil)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+    comp_left = left_pupil
+    comp_right = right_pupil
+    comp_mean = mean_pupil
+
+    x_1 = comp_left.keys()
+    x_2 = comp_right.keys()
+    # x_3 = comp_mean.keys()
+
+    left_x, left_y = sort_dict(comp_left)
+    right_x, right_y = sort_dict(comp_right)
+    # mean_x, mean_y = sort_dict(comp_mean)
+
+    # ax1.plot(np.zeros(max(left_x)), color='red', label='y=0')
+    # ax2.plot(np.zeros(max(right_x)), color='red', label='y=0')
+    # ax3.plot(np.zeros(max(mean_x)), color='red', label='y=0')
+
+    ax1.plot(left_x, left_y, color='green', label='file 1 left_pupil_dilation')
+    ax2.plot(right_x, right_y, color='blue', label='file 1 right_pupil_dilation')
+    # ax3.plot(mean_x, mean_y, color='pink', label='file 1 mean')
+
+    ax1.scatter(comp_left.keys(), comp_left.values(), color='purple', s=2)
+    ax2.scatter(comp_right.keys(), comp_right.values(), color='purple', s=2)
+    # ax3.scatter(comp_mean.keys(), comp_mean.values(), color='purple', s=1)
+
+    ax1.legend(loc='upper right')
+    ax2.legend(loc='upper right')
+    # ax3.legend(loc='upper right')
+
+    ax1.grid()
+    ax2.grid()
+    # ax3.grid()
+    plt.show()

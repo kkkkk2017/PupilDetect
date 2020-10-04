@@ -12,39 +12,36 @@ global instructions
 global error_list
 error_list = []
 
-tasks = ['0-back', '1-back', '1-back-speed', '2-back', '2-back-speed']
+tasks = ['0-back', '1-back', '2-back', '3-back']
 
 prac_task = {
     '1-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
-    '1-back-speed prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
     '2-back prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O',],
-    '2-back-speed prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O',],
+    '3-back prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O',],
 }
 
 instructions = {
     '0-back': '\n0-back Task: You will see a sequence of letters.'
               '\nEach letter is shown for 2 seconds.'
-              '\nAnd you will nee to read out each letter\n\n\n',
+              '\nAnd you will need to read out loud each letter\n\n\n',
     '1-back': '1-back Task: You will see a sequence of letters.'
               '\nEach letter is shown for 2 seconds.'
               '\nYou need to decide if you saw the same letter 1 trials ago.'
               '\n\n If you saw the same letter 1 trials ago, you press \'y\', otherwise, \'o\''
-              '\nFor example: A A ( press \'y\' because it is the same as last one) \nB (press \'o\' because it is not the same as last one)',
-    '1-back-speed': '1-back-speed Task: You will see a sequence of letters.'
-              '\nEach letter is shown for 1 second.'              
-              '\nYou need to decide if you saw the same letter 1 trials ago.'
-              '\n\n If you saw the same letter 1 trials ago, you press \'y\', otherwise, \'o\''
-              '\nFor example: A A ( press \'y\' because it is the same as last one) \nB (press \'o\' because it is not the same as last one)',
+              '\nFor example: A A ( press \'y\' because it is the same as last one) \nB (press \'o\' because it is not the same as last one)'
+              '\nYou will have only one chance for each letter',
     '2-back': '2-back Task: You will see a sequence of letters.'
               '\nEach letter is shown for 2 seconds.'
-              '\nYou need to decide if you saw the same letter 1 trials ago.'
-              '\n\n If you saw the same letter 1 trials ago, you press \'y\', otherwise, \'o\''
-              '\nFor example: A C A ( press \'y\' because it is the same as 2 trials ago) \nB (press \'o\' because it is not the same as 2 trials ago)',
-    '2-back-speed': '2-back-speed Task: You will see a sequence of letters.'
-              '\nEach letter is shown for 1 second.'              
-              '\nYou need to decide if you saw the same letter 1 trials ago.'
-              '\n\n If you saw the same letter 1 trials ago, you press \'y\', otherwise, \'o\''
-              '\nFor example: A C A ( press \'y\' because it is the same as 2 trials ago) \nB (press \'o\' because it is not the same as 2 trials ago)',
+              '\nYou need to decide if you saw the same letter 2 trials ago.'
+              '\n\n If you saw the same letter 2 trials ago, you press \'y\', otherwise, \'o\''
+              '\nFor example: A C A ( press \'y\' because it is the same as 2 trials ago) \nB (press \'o\' because it is not the same as 2 trials ago)'
+              '\nYou will have only one chance for each letter',
+    '3-back': '3-back Task: You will see a sequence of letters.'
+              '\nEach letter is shown for 2 seconds.'
+              '\nYou need to decide if you saw the same letter 3 trials ago.'
+              '\n\n If you saw the same letter 3 trials ago, you press \'y\', otherwise, \'o\''
+              '\nFor example: A P N A( press \'y\' because it is the same as 3 trials ago) \nB (press \'o\' because it is not the same as 3 trials ago)'
+              '\nYou will have only one chance for each letter',
 }
 
 class Application(Frame):
@@ -67,8 +64,7 @@ class Application(Frame):
         self.pre_pre_letter = None
 
         self.if_prac = False
-        self.not_done_level = [1, 2, 3,] # exclude 2-back-speed task
-        self.speed_2 = False # 2-back-speed task
+        self.not_done_level = [1, 2, 3]
         self.errors = []
         self.error_made = 0
         self.input = 0
@@ -134,9 +130,8 @@ class Application(Frame):
     def level_to_string(self):
         dict = {0: '0-back',
                 1: '1-back',
-                2: '1-back-speed',
-                3: '2-back',
-                4: '2-back-speed'}
+                2: '2-back',
+                3: '3-back',}
         return dict.get(self.current_level)
 
     def terminate(self):
@@ -210,20 +205,16 @@ class Application(Frame):
         self.if_prac = True
         self.error_made = 0
 
-        if not self.speed_2:
-            if len(self.not_done_level) > 0:
-                get = random.randint(0, len(self.not_done_level)-1)
-                self.current_level = self.not_done_level.pop(get) # get new task level
-                self.initial_tasks()
-
-            else:
-                self.label.config(text='\nCOMPLETED!!\n', font=('Lucida Grande', 100, 'bold'), pady=200)
-                self.speed_2 = True
-
-        # a hidden task (2-back-speed)
-        else:
-            self.current_level = 4
+        if len(self.not_done_level) > 0:
+            get = random.randint(0, len(self.not_done_level)-1)
+            self.current_level = self.not_done_level.pop(get) # get new task level
             self.initial_tasks()
+
+        else:
+            self.label.config(text='\nCOMPLETED!!\n', font=('Lucida Grande', 100, 'bold'), pady=200)
+            global error_list
+            error_list = self.errors
+
 
     def reset_error_labels(self):
         self.ans_label.config(text='Your Answer is: ')
@@ -240,9 +231,6 @@ class Application(Frame):
                 self.handle_wrong()
         else:
             self.input = 0
-
-        if self.level_to_string().__contains__('speed'):
-            interval = 1000  # 1000
 
         # t = 0 - 5
         # if showing the prac task
@@ -300,10 +288,6 @@ class Application(Frame):
             self.t = 0
             if self.if_prac:
                 self.if_prac = False
-
-            if self.speed_2:
-                global error_list
-                error_list = self.errors
 
 
     def show_label(self, current, letter):

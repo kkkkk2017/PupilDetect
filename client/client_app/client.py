@@ -27,7 +27,7 @@ class Client:
 
         self.left_x = [min(pre_x), max(pre_x)]
         self.left_y = [min(pre_y), max(pre_y)]
-        self.left_threshold = [min(pre_thres) - 2, max(pre_thres) + 3]  # allow little flexible for light
+        self.left_threshold = [min(pre_thres) - 5, max(pre_thres) + 5]  # allow little flexible for light
 
         pre_x = [i[1][0] for i in pre_right]
         pre_y = [i[1][1] for i in pre_right]
@@ -35,4 +35,4 @@ class Client:
 
         self.right_x = [min(pre_x), max(pre_x)]
         self.right_y = [min(pre_y), max(pre_y)]
-        self.right_threshold = [min(pre_thres) - 2, max(pre_thres) + 3]  # allow little flexible for light
+        self.right_threshold = [min(pre_thres) - 5, max(pre_thres) + 5]  # allow little flexible for light

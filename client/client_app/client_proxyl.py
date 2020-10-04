@@ -14,8 +14,8 @@ import pickle
 from Task import Task
 
 face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
-face_detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(face_file)
+face_detector = dlib.get_frontal_face_detector()
 
 global pre_pupil_data
 pre_pupil_data_left = []
@@ -32,13 +32,15 @@ detector_params.minArea = 45
 detector_params.maxArea = 200
 blob_detector = cv2.SimpleBlobDetector_create(detector_params)
 
+RESIZE = 3
+
 global run
 run = True
 
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
     roi = frame[y:(y + h), x:(x + w)]
-    roi = roi[int(h * 0.05): (h), int(w * 0.2): int(w * 0.9)]
+    # roi = roi[int(h * 0.05): (h), int(w * 0.2): int(w * 0.9)]
     return roi
 
 
@@ -57,9 +59,9 @@ def show_text(client, frame, ear, time):
     cv2.putText(frame, "EAR:{:.2f}".format(ear), (10, 50),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
 
-    cv2.putText(frame, 'Left Pupil: {:.5f}'.format(client.left_pupil / 3), (300, 30),
+    cv2.putText(frame, 'Left Pupil: {:.5f}'.format(client.left_pupil / RESIZE), (300, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
-    cv2.putText(frame, 'Right Pupil: {:.5f}'.format(client.right_pupil / 3), (300, 50),
+    cv2.putText(frame, 'Right Pupil: {:.5f}'.format(client.right_pupil / RESIZE), (300, 50),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
 
     cv2.putText(frame, 'Time {:2f}'.format(time - client.start_time), (10, 350),
@@ -75,39 +77,49 @@ def terminate_detect():
 def image_preprocess(image, threshold):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     (x, y, w, h) = cv2.boundingRect(image)
-    image = imutils.resize(image, width=int(w * 3), height=int(h * 3), inter=cv2.INTER_CUBIC)
+    image = imutils.resize(image, width=int(w * RESIZE), height=int(h * RESIZE), inter=cv2.INTER_CUBIC)
     _, thres = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
     blur = cv2.medianBlur(thres, 1)
     return blur, image, w, h
 
 
-def get_keypoints(client, image, threshold, side):
-    if side == 0:
-        min_x = client.left_x[0] if client.left_x else 0
-        max_x = client.left_x[1] if client.left_x else 20
-        min_y = client.left_y[0] if client.left_y else 0
-        max_y = client.left_y[1] if client.left_y else 20
+def get_keypoints(client=None, image=None, threshold=0, side=None, calib=False):
+    if calib:
+        img, gray, w, h = image_preprocess(image, threshold)
+        keypoints = blob_detector.detect(img)
+        if keypoints:
+            if keypoints[0].pt[0] >= w * 0.7 and keypoints[0].pt[0] >= h * 0.33 and keypoints[0].size < 10:
+                image_k = cv2.drawKeypoints(gray, keypoints, gray, (0, 0, 255),
+                                            cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                return (image_k, threshold, keypoints[0].pt, keypoints[0].size)
 
-    if side == 1:
-        min_x = client.right_x[0] if client.right_x else 0
-        max_x = client.right_x[1] if client.right_x else 20
-        min_y = client.right_y[0] if client.right_y else 0
-        max_y = client.right_y[1] if client.right_y else 20
+    else:
+        if side == 0:
+            min_x = client.left_x[0] if client.left_x else 0
+            max_x = client.left_x[1] if client.left_x else 20
+            min_y = client.left_y[0] if client.left_y else 0
+            max_y = client.left_y[1] if client.left_y else 20
 
-    img, _, _, _ = image_preprocess(image, threshold)
-    keypoints = blob_detector.detect(img)
+        if side == 1:
+            min_x = client.right_x[0] if client.right_x else 0
+            max_x = client.right_x[1] if client.right_x else 20
+            min_y = client.right_y[0] if client.right_y else 0
+            max_y = client.right_y[1] if client.right_y else 20
 
-    if keypoints:
-        if keypoints[0].pt[0] >= min_x and keypoints[0].pt[0] <= max_x:
-            if keypoints[0].pt[1] >= min_y and keypoints[0].pt[1] <= max_y:
-                # image_k = cv2.drawKeypoints(image, keypoints, image, (0, 0, 255),
-                #                             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-                # cv2.imshow('image', image_k)
-                # print(side, (x, y, w, h), keypoints[0].pt, keypoints[0].size)
-                return keypoints[0].size  # diameter
+        img, _, _, _ = image_preprocess(image, threshold)
+        keypoints = blob_detector.detect(img)
 
-    # stack = np.hstack((image, thres, blur))
-    # cv2.imshow('stack', stack)
+        if keypoints:
+            if keypoints[0].pt[0] >= min_x and keypoints[0].pt[0] <= max_x:
+                if keypoints[0].pt[1] >= min_y and keypoints[0].pt[1] <= max_y:
+                    # image_k = cv2.drawKeypoints(image, keypoints, image, (0, 0, 255),
+                    #                             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                    # cv2.imshow('image', image_k)
+                    # print(side, (x, y, w, h), keypoints[0].pt, keypoints[0].size)
+                    return keypoints[0].size  # diameter
+
+        # stack = np.hstack((image, thres, blur))
+        # cv2.imshow('stack', stack)
     return None
 
 
@@ -115,11 +127,11 @@ def blob_process(client, eye, side):
     optimal = []
 
     if side == 0:  # 0 - left side
-        start_threshold = client.left_threshold[0] #if client.left_threshold is not None else 10
-        end_threshold = client.left_threshold[1] #if client.left_threshold is not None else 130
+        start_threshold = client.left_threshold[0] if client.left_threshold is not None else 10
+        end_threshold = client.left_threshold[1] if client.left_threshold is not None else 130
     if side == 1:  # 1 - right side
-        start_threshold = client.right_threshold[0] #if client.right_threshold is not None else 10
-        end_threshold = client.right_threshold[1] #if client.right_threshold is not None else 130
+        start_threshold = client.right_threshold[0] if client.right_threshold is not None else 10
+        end_threshold = client.right_threshold[1] if client.right_threshold is not None else 130
 
     for thres in range(start_threshold, end_threshold):
         area = get_keypoints(client=client, image=eye, threshold=thres, side=side)
@@ -142,10 +154,6 @@ def blob_process(client, eye, side):
 def blob_process_both_eyes(client, left_eye, right_eye):
     left_optimal = blob_process(client, left_eye, 0)
     right_optimal = blob_process(client, right_eye, 1)
-
-    # # print('left', left_optimal, 'right', right_optimal)
-    # if left_optimal is not None or right_optimal is not None:
-    #     return left_optimal, right_optimal
 
     return left_optimal, right_optimal
 
@@ -173,7 +181,7 @@ def calib_eye(left, right, eye, calib_count):
     max_thres = 0
 
     for threshold in range(0, 130):
-        result = get_keypoints_calib(eye, threshold)
+        result = get_keypoints(image=eye, threshold=threshold, calib=True)
         if result:
             max_thres = max(max_thres, threshold)
             images.append(result)
@@ -205,24 +213,12 @@ def calib_eye(left, right, eye, calib_count):
     return None, None, calib_count
 
 
-def get_keypoints_calib(image, threshold):
-    img, gray, w, h = image_preprocess(image, threshold)
-    keypoints = blob_detector.detect(img)
-    if keypoints:
-        if keypoints[0].pt[0] >= w * 0.7 and keypoints[0].pt[0] >= h * 0.33 and keypoints[0].size < 10:
-            image_k = cv2.drawKeypoints(gray, keypoints, gray, (0, 0, 255),
-                                        cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            return (image_k, threshold, keypoints[0].pt, keypoints[0].size)
-
-    return None
-
-
 def read_control():
     control_file = path.join(path.dirname(__file__), 'control.txt')
     with open(control_file, 'r') as f:
         lines = f.readline(1)
         f.close()
-        return lines[0]
+    return lines[0]
 
 
 def read_error_list():
@@ -235,25 +231,24 @@ def read_error_list():
 
 def send_data(client, socket, blink=False):
     if blink:
-        data = Task(client.time, client.left_pupil / 3 if client.left_pupil != 0 else 0,
-                    client.right_pupil / 3 if client.right_pupil != 0 else 0, blink=client.blink_count, error=0)
+        data = Task(client.time, client.left_pupil / RESIZE if client.left_pupil != 0 else 0,
+                    client.right_pupil / RESIZE if client.right_pupil != 0 else 0, blink=client.blink_count, error=0)
         obj = pickle.dumps(data)
         socket.sendall(b'[D]' + obj)
     else:
         if client.left_pupil == 0 and client.right_pupil == 0:
             return
         else:
-            data = Task(client.time, client.left_pupil / 3 if client.left_pupil != 0 else 0,
-                        client.right_pupil / 3 if client.right_pupil != 0 else 0, blink=np.nan, error=0)
+            data = Task(client.time, client.left_pupil / RESIZE if client.left_pupil != 0 else 0,
+                        client.right_pupil / RESIZE if client.right_pupil != 0 else 0, blink=np.nan, error=0)
             obj = pickle.dumps(data)
             socket.sendall(b'[D]' + obj)
-    time.sleep(0.5)
+    time.sleep(1)
 
 
 ##################### main program #########################
 def run_with_server(HOST='localhost', PORT=8080, client=None):
     try:
-        print(client)
         ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         conn = ServerSocket.connect((HOST, PORT))
         print('Connection Established')
@@ -340,7 +335,6 @@ def run_with_server(HOST='localhost', PORT=8080, client=None):
 
 
 def run_standalone(client):
-    print(client)
 
     root = Tkinter.Tk()
     root.withdraw()
@@ -375,14 +369,14 @@ def run_standalone(client):
             # detect blink
             ear = handle_blink(shape, frame, show_hull)
 
-            if EAR_UNCHANGED < 3:
+            if EAR_UNCHANGED < 2:
                 MAX_EAR = max(MAX_EAR, ear)
                 if (ear // 0.001) == (MAX_EAR // 0.001):
                     EAR_UNCHANGED += 1
                 else:
                     EAR_UNCHANGED = 0
 
-            elif EAR_UNCHANGED == 3:
+            elif EAR_UNCHANGED == 2:
                 global EYE_AR_THRESH
                 EYE_AR_THRESH = MAX_EAR * 0.7
                 EAR_UNCHANGED += 1  # make it to 5 so it won't run this line again

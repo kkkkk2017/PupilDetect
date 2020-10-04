@@ -11,7 +11,7 @@ client = Client()
 def start_program():
     #172.17.253.113
 
-    server = Process(name='client', target=client_proxyl.run_with_server, args=('172.17.253.113', 8080, client))
+    server = Process(name='client', target=client_proxyl.run_with_server, args=('localhost', 8080, client))
     task = Process(name='task', target=taskProgram.run, args=())
 
     server.start()

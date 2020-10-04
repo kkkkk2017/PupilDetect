@@ -8,8 +8,8 @@ import csv
 
 OK = b'ok'
 
-HOST = '172.17.253.113'
-# HOST='localhost'
+# HOST = '172.17.253.113'
+HOST='localhost'
 PORT = 8080
 
 global tasks
@@ -60,15 +60,6 @@ def add_input(input_queue):
     while True:
         msg = sys.stdin.read(1)
         input_queue.put(msg)
-
-
-def virtualise_data(fig, ax, i, ld, rd, m):
-    # draw graph
-    ax.scatter([i], [ld], color='green')
-    ax.scatter([i], [rd], color='blue')
-    ax.scatter([i], [m], color='red')
-    fig.canvas.draw()
-    print('draw')
 
 
 def run(conn, task_num):

@@ -4,7 +4,7 @@ class Task:
     def __init__(self, time, left_pupil, right_pupil, blink):
         self.left_pupil = left_pupil
         self.right_pupil = right_pupil
-        self.mean = np.mean((left_pupil, right_pupil))
+        self.mean = 0
         self.blink_count = blink
         self.time = time
         self.error = 0
