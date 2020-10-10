@@ -5,13 +5,12 @@ import sys
 import Queue
 import time
 import csv
-# import matplotlib.pyplot as plt
-# import matplotlib.patches as mpatches
 
 OK = b'ok'
 
-HOST = '172.17.253.113'
-# HOST='localhost'
+# HOST = '172.17.253.113'
+# HOST=' 172.18.20.225'
+HOST='localhost'
 PORT = 8080
 
 global tasks
@@ -21,33 +20,55 @@ end_t = []
 global input_queue
 input_queue = Queue.Queue()
 
+def receive_error_list(data):
+    print('REV [ERROR-LIST] --->')
+    data = pickle.loads(data[3:])
+    print(data)
+    f = open('data/error_list.csv', 'w')
+    with f:
+        writer = csv.writer(f)
+        if data:
+            writer.writerow([i for i in data])
+            print('[CSV] DONE!' + f.name)
+
 def write_to_csv(task_num):
     f = open('data/task_' + str(task_num) + '.csv', 'w')
     with f:
         writer = csv.writer(f)
         if tasks:
-            writer.writerow(['time', 'left_pupil', 'right_pupil', 'mean', 'blink_count', 'error'])
+            writer.writerow(['time', 'left_pupil', 'right_pupil', 'left_iris', 'right_iris', 'blink_count'])
             for t in tasks:
-                writer.writerow([i for i in t.toList()])
-            print('csv done.' + f.name)
+                writer.writerow([i for i in t])
+            print('[CSV] DONE!' + f.name)
 
+def to_String(ary):
+    attrs = ['time', 'left_pupil', 'right_pupil', 'left_iris', 'right_iris', 'blink_count']
+    for i, a in zip(ary, attrs):
+        print(a, i)
 
-def receive_data(data, append_data, index, error):
-    print('REV--->')
-    data = pickle.loads(data[3:])
-    data.toString()
-    if append_data:
-        if error:
-            data.error = 1
-        tasks.append(data)
-        print('append')
-        print(tasks)
-        index+=1
-        # virtualise_data(fig, ax, index, data.left_pupil, data.right_pupil, data.mean)
+def receive_data(data, append_data, index):
+    try:
+        print('REV--->')
+        try:
+            # print(data)
+            data = pickle.loads(data[3:])
+            to_String(data)
 
-    else:
-        print('not append')
-    return index
+        except pickle.PickleError as err:
+            print(err)
+
+        if append_data:
+            tasks.append(data)
+            print('[APPEND]')
+            print(len(tasks), 'Tasks Data')
+            index+=1
+
+        else:
+            print('not append')
+        return index
+
+    except socket.error as err:
+        print(err)
 
 
 def add_input(input_queue):
@@ -55,36 +76,6 @@ def add_input(input_queue):
         msg = sys.stdin.read(1)
         input_queue.put(msg)
 
-
-# def create_fig():
-#     fig, ax = plt.subplots()
-#     legend_element = [mpatches.Patch(color='blue', label='Left pupil', linestyle='-', linewidth=0.5),
-#                       mpatches.Patch(color='green', label='Right pupil', linestyle='-', linewidth=0.5),
-#                       mpatches.Patch(color='red', label='Mean', linestyle='--', linewidth=0.5)]
-#     ax.legend(handles=legend_element, loc='upper_left')
-#     ax.set_ylim(bottom=0, top=15)
-#     ax.set_title('Pupil Dilation')
-#     return fig, ax
-
-
-def virtualise_data(fig, ax, i, ld, rd, m):
-    # draw graph
-    ax.scatter([i], [ld], color='green')
-    ax.scatter([i], [rd], color='blue')
-    ax.scatter([i], [m], color='red')
-    fig.canvas.draw()
-    print('draw')
-
-def draw_line(fig, ax):
-    if tasks:
-        left_pupil = [i.left_pupil for i in tasks]
-        right_pupil = [i.right_pupil for i in tasks]
-        mean = [i.mean for i in tasks]
-
-        ax.plot([i for i in range(len(left_pupil))], left_pupil, '-g')
-        ax.plot([i for i in range(len(right_pupil))], right_pupil, '-b')
-        ax.plot([i for i in range(len(mean))], mean, '-r')
-    return fig, ax
 
 def run(conn, task_num):
     # print('create send_message thread')
@@ -94,9 +85,7 @@ def run(conn, task_num):
 
     append_data = False
     terminate = False
-    error = False
 
-    # fig, ax = create_fig()
     index = 0
 
     while not terminate:
@@ -106,9 +95,12 @@ def run(conn, task_num):
                 data = conn.recv(1024)
                 if data:
                     if data.__contains__(b'[D]'):
-                        index = receive_data(data, append_data, index, error)
+                        index = receive_data(data, append_data, index)
                         last_update = time.time()
-                        error = False
+                    elif data.__contains__(b'[E]'):
+                        print('receive error')
+                        receive_error_list(data)
+                        last_update = time.time()
 
             if not input_queue.empty():
                 msg = input_queue.get()
@@ -119,11 +111,6 @@ def run(conn, task_num):
                     task_num+=1
                     print(start_t)
                     append_data = True
-                    error = False
-
-                elif msg == 'e':
-                    error = True
-                    print('made error')
 
                 elif msg == 'n': # next task
                     end_t.append(time.time())
@@ -140,10 +127,7 @@ def run(conn, task_num):
                     break
 
                 elif msg == 'exit':
-                    exit(0)
-
-            # fig, ax = draw_line(fig, ax)
-            # fig.show()
+                    break
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setblocking(1)
@@ -163,3 +147,5 @@ while True:
         run(conn, task_num)
     except socket.error as err:
         print(err)
+    finally:
+        exit(0)

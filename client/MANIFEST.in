@@ -1,2 +1,4 @@
 include client_app/face_landmarks.dat
 include client_app/tasks/*
+include client_app/control.txt
+include client_app/error_list.txt
