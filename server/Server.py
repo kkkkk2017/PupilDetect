@@ -9,6 +9,7 @@ import csv
 OK = b'ok'
 
 # HOST = '172.17.253.113'
+# HOST=' 172.18.20.225'
 HOST='localhost'
 PORT = 8080
 
@@ -35,25 +36,39 @@ def write_to_csv(task_num):
     with f:
         writer = csv.writer(f)
         if tasks:
-            writer.writerow(['time', 'left_pupil', 'right_pupil', 'mean', 'blink_count', 'error'])
+            writer.writerow(['time', 'left_pupil', 'right_pupil', 'left_iris', 'right_iris', 'blink_count'])
             for t in tasks:
-                writer.writerow([i for i in t.toList()])
+                writer.writerow([i for i in t])
             print('[CSV] DONE!' + f.name)
 
+def to_String(ary):
+    attrs = ['time', 'left_pupil', 'right_pupil', 'left_iris', 'right_iris', 'blink_count']
+    for i, a in zip(ary, attrs):
+        print(a, i)
 
 def receive_data(data, append_data, index):
-    print('REV--->')
-    data = pickle.loads(data[3:])
-    data.toString()
-    if append_data:
-        tasks.append(data)
-        print('[APPEND]')
-        print(len(tasks), 'Tasks Data')
-        index+=1
+    try:
+        print('REV--->')
+        try:
+            # print(data)
+            data = pickle.loads(data[3:])
+            to_String(data)
 
-    else:
-        print('not append')
-    return index
+        except pickle.PickleError as err:
+            print(err)
+
+        if append_data:
+            tasks.append(data)
+            print('[APPEND]')
+            print(len(tasks), 'Tasks Data')
+            index+=1
+
+        else:
+            print('not append')
+        return index
+
+    except socket.error as err:
+        print(err)
 
 
 def add_input(input_queue):

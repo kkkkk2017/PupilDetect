@@ -60,8 +60,9 @@ class Application(Frame):
 
         self.current_task = []
         self.current_letter = None
-        self.prev_letter = None
-        self.pre_pre_letter = None
+        self.back_1 = None
+        self.back_2 = None
+        self.back_3 = None
 
         self.if_prac = False
         self.not_done_level = [1, 2, 3]
@@ -88,24 +89,35 @@ class Application(Frame):
             return
 
         # 1 back
-        if self.current_level < 3:
-            if self.prev_letter is None:
+        if self.current_level == 1:
+            if self.back_1 is None:
                 return
 
             if self.input == 1:
-                if (self.prev_letter == self.current_letter and ans == 'y') or \
-                    (self.prev_letter != self.current_letter and ans == 'o'):
+                if (self.back_1 == self.current_letter and ans == 'y') or \
+                    (self.back_1 != self.current_letter and ans == 'o'):
                     self.ans_label.config(text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
 
-        else:
+        elif self.current_level == 2:
             # 2 back
-            if self.pre_pre_letter is None:
+            if self.back_2 is None:
                 return
             if self.input == 1:
-                if (self.pre_pre_letter == self.current_letter and ans == 'y') or \
-                    (self.pre_pre_letter != self.current_letter and ans == 'o'):
+                if (self.back_2 == self.current_letter and ans == 'y') or \
+                    (self.back_2 != self.current_letter and ans == 'o'):
+                    self.ans_label.config(text='Your Answer is Correct')
+                else:
+                    self.handle_wrong()
+
+        elif self.current_level == 3:
+            # 3 back
+            if self.back_3 is None:
+                return
+            if self.input == 1:
+                if (self.back_3 == self.current_letter and ans == 'y') or \
+                    (self.back_3 != self.current_letter and ans == 'o'):
                     self.ans_label.config(text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
@@ -131,7 +143,7 @@ class Application(Frame):
         dict = {0: '0-back',
                 1: '1-back',
                 2: '2-back',
-                3: '3-back',}
+                3: '3-back'}
         return dict.get(self.current_level)
 
     def terminate(self):
@@ -220,14 +232,18 @@ class Application(Frame):
         self.ans_label.config(text='Your Answer is: ')
         self.error_label.config(text='| Errors: ' + str(self.error_made))
 
+
     def start_task(self, interval=2000):
         #check the last letter
         if self.input == 0:
             #1 back task, not counting the first letter
-            if self.current_level in [1,2] and (self.t-2) > 1 and (self.t-2) <= len(self.current_task):
+            if self.current_level == 1 and (self.t-2) > 1 and (self.t-2) <= len(self.current_task):
                 self.handle_wrong()
             #2 back task, not counting the second letter
-            elif self.current_level in [3,4] and (self.t-2) > 2 and (self.t-2) <= len(self.current_task):
+            elif self.current_level == 2 and (self.t-2) > 2 and (self.t-2) <= len(self.current_task):
+                self.handle_wrong()
+            #3 back task, not counting the third letter
+            elif self.current_level == 3 and (self.t-2) > 3 and (self.t-2) <= len(self.current_task):
                 self.handle_wrong()
         else:
             self.input = 0
@@ -242,7 +258,7 @@ class Application(Frame):
 
         if self.t == 2:
             self.label.config(fg='white')
-            self.task_frame.place(x=0, y=300)
+            self.task_frame.place(x=0, y=200)
 
         if self.t == 0:
             self.task_frame.place(x=0, y=100)
@@ -280,9 +296,10 @@ class Application(Frame):
             if not self.if_prac:
                 self.label.config(text='Take a Break', fg='black')
 
-            self.prev_letter = None
+            self.back_1 = None
             self.current_letter = None
-            self.pre_pre_letter = None
+            self.back_2 = None
+            self.back_3 = None
 
             # show main labels
             self.t = 0
@@ -303,11 +320,14 @@ class Application(Frame):
         if current == 0:
             self.label.config(text=' ')
 
-        if self.prev_letter:
-            self.pre_pre_letter = self.prev_letter
+        if self.back_2:
+            self.back_3 = self.back_2
+
+        if self.back_1:
+            self.back_2 = self.back_1
 
         if self.current_letter:
-            self.prev_letter = self.current_letter
+            self.back_1 = self.current_letter
 
         self.current_letter = letter
         self.task_labels[label].config(fg='black', text=letter)

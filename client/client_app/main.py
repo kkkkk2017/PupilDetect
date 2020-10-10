@@ -10,6 +10,10 @@ client = Client()
 
 def start_program():
     #172.17.253.113
+    control_file = path.join(path.dirname(__file__), 'control.txt')
+    with open(control_file, 'w') as f:
+        f.write('1')
+        f.close()
 
     server = Process(name='client', target=client_proxyl.run_with_server, args=('localhost', 8080, client))
     task = Process(name='task', target=taskProgram.run, args=())
@@ -28,11 +32,6 @@ def run_calib():
     client = client_proxyl.run_standalone(client)
 
 def main():
-    control_file = path.join(path.dirname(__file__), 'control.txt')
-    with open(control_file, 'w') as f:
-        f.write('1')
-        f.close()
-
     root = Tk()
     root.title('Pupil Detector')
     root.resizable(0, 0)
