@@ -94,7 +94,7 @@ def pupil_preprocess(image, threshold, iris, show=False):
             if radius >= iris[2]: continue
 
             ratio = radius/iris[2]
-            if ratio <= 0.2 or ratio >= 0.8: continue
+            if ratio <= 0.2 or ratio >= 0.75: continue
 
             dist_x = np.abs(iris[0]-x)
             dist_y = np.abs(iris[1]-y)
@@ -142,8 +142,8 @@ def pupil_preprocess(image, threshold, iris, show=False):
 def iris_preprocess(image):
     blur_iris = cv2.GaussianBlur(image, (5, 5), 0)
     edge = cv2.Canny(blur_iris, 60, 60)
-    open = cv2.morphologyEx(edge, cv2.MORPH_OPEN, (3, 3))
-    iris = cv2.HoughCircles(open, cv2.HOUGH_GRADIENT, 1, 5, param1=10, param2=10, minRadius=18, maxRadius=25)
+    # open = cv2.morphologyEx(edge, cv2.MORPH_OPEN, (3, 3))
+    iris = cv2.HoughCircles(edge, cv2.HOUGH_GRADIENT, 1, 5, param1=10, param2=10, minRadius=18, maxRadius=25)
     if iris is not None:
         # iris = np.uint16(np.around(iris, decimals=3))
         iris = sort_results(iris[0])
@@ -216,14 +216,14 @@ def get_keypoints(client=None, image=None, threshold=0, side=None):
     if result is not None:
         iris, pupil = result
         # print('getting result and check iris', iris, iris_limit)
-        if iris[0] >= iris_limit[0][0] and iris[0] <= iris_limit[0][1]: #check x
-            if iris[1] >= iris_limit[1][0] and iris[1] <= iris_limit[1][1]: #check y
-                if iris[2] >= iris_limit[2][0] and iris[2] <= iris_limit[2][1]: #check size
-                    #check pupil
-                    # print('check pupil', side, pupil, min_x, max_x, min_y, max_y)
-                    if pupil[0] >= min_x and pupil[0] <= max_x: #check x
-                        if pupil[1] >= min_y and pupil[1] <= max_y: #check y
-                            return (iris[2], pupil[2]) #only need the radius
+        # if iris[0] >= iris_limit[0][0] and iris[0] <= iris_limit[0][1]: #check x
+        #     if iris[1] >= iris_limit[1][0] and iris[1] <= iris_limit[1][1]: #check y
+        if iris[2] >= iris_limit[2][0] and iris[2] <= iris_limit[2][1]: #check size
+            #check pupil
+            # print('check pupil', side, pupil, min_x, max_x, min_y, max_y)
+            if pupil[0] >= min_x and pupil[0] <= max_x: #check x
+                if pupil[1] >= min_y and pupil[1] <= max_y: #check y
+                    return (iris[2], pupil[2]) #only need the radius
     return None
 
 
@@ -388,7 +388,7 @@ def send_data(client, socket, blink=False):
     client.current_right_iris = 0
 
 ##################### main program #########################
-def run_with_server(HOST='localhost', PORT=8080, client=None):
+def run_with_server(HOST='175.45.149.94', PORT=8080, client=None):
 
     try:
         ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -470,7 +470,7 @@ def run_with_server(HOST='localhost', PORT=8080, client=None):
                         blink_t = time.time()
                         task_t = time.time()
 
-                    elif client.current_time - task_t >= 1:
+                    elif client.current_time - task_t >= 0.5:
                         if not (client.left_pupil == 0 and client.right_pupil == 0):
                             send_data(client=client, socket=ServerSocket)
                         task_t = time.time()

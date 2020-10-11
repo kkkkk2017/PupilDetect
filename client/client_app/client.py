@@ -59,5 +59,5 @@ class Client:
 
         self.right_threshold = [min(right_threshold) - 5, max(right_threshold) + 5]  # allow little flexible for light
 
-        print('filter set [left]', self.left_iris, self.left_x, self.left_y, self.left_threshold)
-        print('filter set [right]', self.right_iris, self.right_x, self.right_y, self.right_threshold)
+        # print('filter set [left]', self.left_iris, self.left_x, self.left_y, self.left_threshold)
+        # print('filter set [right]', self.right_iris, self.right_x, self.right_y, self.right_threshold)

@@ -15,14 +15,18 @@ def start_program():
         f.write('1')
         f.close()
 
-    server = Process(name='client', target=client_proxyl.run_with_server, args=('localhost', 8080, client))
+    processes = []
+
+    server = Process(name='client', target=client_proxyl.run_with_server, args=('175.45.149.94', 8080, client))
     task = Process(name='task', target=taskProgram.run, args=())
 
     server.start()
+    processes.append(server)
     task.start()
+    processes.append(task)
 
-    server.join()
-    task.join()
+    for p in processes:
+        p.join()
 
 def terminate():
     exit(0)

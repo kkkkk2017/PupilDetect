@@ -10,8 +10,10 @@ OK = b'ok'
 
 # HOST = '172.17.253.113'
 # HOST=' 172.18.20.225'
-HOST='localhost'
-PORT = 8080
+# HOST='175.45.149.94'
+HOST = '108.162.250.75'
+# HOST = '172.17.134.145'
+PORT = 43664
 
 global tasks
 tasks = []
