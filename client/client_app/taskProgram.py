@@ -1,10 +1,9 @@
-from Tkinter import *
+from tkinter import Frame, Button, Label, Tk
 import os.path as path
 import random
 import time
 import csv
 import os
-import numpy as np
 
 global width
 global height

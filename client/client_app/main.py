@@ -1,4 +1,4 @@
-from Tkinter import *
+import tkinter
 import taskProgram
 import client_proxyl
 from multiprocessing import Process
@@ -36,15 +36,15 @@ def run_calib():
     client = client_proxyl.run_standalone(client)
 
 def main():
-    root = Tk()
+    root = tkinter.Tk()
     root.title('Pupil Detector')
     root.resizable(0, 0)
 
-    calib = Button(text='CALIBRATE', fg='blue', bg='white', width=20,
+    calib = tkinter.Button(text='CALIBRATE', fg='blue', bg='white', width=20,
                    font=('calibri', 13, 'bold'), command=run_calib)
     calib.pack()
 
-    start = Button(text='START', fg='dark green', bg='white', width=20, font=('calibri', 13, 'bold'),
+    start = tkinter.Button(text='START', fg='dark green', bg='white', width=20, font=('calibri', 13, 'bold'),
                    command=start_program)
     start.pack()
 
@@ -52,7 +52,7 @@ def main():
     #                 command=export_error)
     # export.pack()
 
-    quit = Button(text='QUIT', fg='red', bg='white', width=20, font=('calibri', 13, 'bold'),
+    quit = tkinter.Button(text='QUIT', fg='red', bg='white', width=20, font=('calibri', 13, 'bold'),
                   command=terminate)
     quit.pack()
 

@@ -5,8 +5,8 @@ import time
 import dlib
 import argparse
 import os.path as path
-import Tkinter
-import tkMessageBox
+from tkinter import *
+from tkinter import messagebox
 from scipy.spatial import distance as dist
 import numpy as np
 import pickle
@@ -78,7 +78,7 @@ def pupil_preprocess(image, threshold, iris, show=False, calib=False):
     _, thres = cv2.threshold(gaublur, threshold, 255, cv2.THRESH_BINARY)
     blur = cv2.medianBlur(thres, 5)
     #use findcontours
-    _, contours, hierarchy = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     if show:
         hstack = np.hstack((hist, open, close))
@@ -180,7 +180,7 @@ def iris_pupil(eye, threshold, calib=False):
         if pupil is not None:
             if calib:
                 image = np.copy(eye)
-                image = cv2.circle(image, (iris[0], iris[1]), iris[2], (0, 0, 255), 1)
+                image = cv2.circle(image, (int(iris[0]), int(iris[1])), int(iris[2]), (0, 0, 255), 1)
                 # print('pupil', pupil)
                 image = cv2.circle(image, (pupil[0], pupil[1]), pupil[2], (0, 0, 255), 1)
                 return (image, iris, pupil)
@@ -339,7 +339,7 @@ def calib_eye(left, right, eye, calib_count):
             cv2.destroyWindow('image')
             calib_count -= 1
             if calib_count % 5 == 0:
-                tkMessageBox.showinfo('Sample count Left', '{} left'.format(calib_count))
+                messagebox.showinfo('Sample count Left', '{} left'.format(calib_count))
 
             if left:
                 pre_pupil_data_left.append((i[1], i[2]))
@@ -497,10 +497,10 @@ def run(client=None):
 
 def run_standalone(client):
 
-    root = Tkinter.Tk()
+    root = Tk()
     root.withdraw()
 
-    tkMessageBox.showinfo('Calibration', 'Please open your eyes and stay for 1 second.\nWhen you ready, press Any Key')
+    messagebox.showinfo('Calibration', 'Please open your eyes and stay for 1 second.\nWhen you ready, press Any Key')
 
     cap = cv2.VideoCapture(0)
     client.start_time = time.time()
@@ -517,7 +517,7 @@ def run_standalone(client):
 
     while True:
         _, frame = cap.read()
-        frame = imutils.resize(frame, width=800, height=800)
+        frame = imutils.resize(frame, width=1000, height=1000)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # detect face
@@ -541,12 +541,12 @@ def run_standalone(client):
                 EYE_AR_THRESH = MAX_EAR * 0.75
                 EAR_UNCHANGED += 1  # make it to 5 so it won't run this line again
                 client.calib_blink = False  # calibration for blink end
-                tkMessageBox.showinfo('Calibration', 'Blink SET! {}'.format(EYE_AR_THRESH))
+                messagebox.showinfo('Calibration', 'Blink SET! {}'.format(EYE_AR_THRESH))
                 time.sleep(1)
                 show_hull = False
                 calib = 1
                 # print(EAR_UNCHANGED, EYE_AR_THRESH)
-                tkMessageBox.showinfo('Calibration',
+                messagebox.showinfo('Calibration',
                                       'Please select the image that circled your pupil correctly by press \'y\', '
                                       'otherwise, anyother key.\nWhen you ready, press Any Key')
 
@@ -570,7 +570,7 @@ def run_standalone(client):
                 if r1 is not None and r2 is not None:
                     left = r1
                     right = r2  # finish left eye
-                    tkMessageBox.showinfo('Calibration', 'Left eye done!')
+                    messagebox.showinfo('Calibration', 'Left eye done!')
 
             elif calib == 1 and right:
                 right_eye = extract_eye(frame, shape, rStart, rEnd)
@@ -581,7 +581,7 @@ def run_standalone(client):
                     calib = 2  # finish eye calibration
                     client.set_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right,
                                          left_threshold=pre_left_threshold, right_threshold=pre_right_threshold)
-                    tkMessageBox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
+                    messagebox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
 
             #calibration finish
             if calib == 2:
