@@ -17,7 +17,7 @@ def start_program():
 
     processes = []
 
-    server = Process(name='client', target=client_proxyl.run_with_server, args=('175.45.149.94', 8080, client))
+    server = Process(name='client', target=client_proxyl.run, args=(client, ))
     task = Process(name='task', target=taskProgram.run, args=())
 
     server.start()

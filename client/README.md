@@ -10,17 +10,17 @@ Pupil Detection Program
 ##### Step 3, activate your conda environment with
         conda activate pupil_env
 
-#### Step 4, run the following command to install cmake
-        conda install cmake==3.18.2
+##### Step 4, run the following command to install cmake
+        conda install cmake==3.18.2 --no-update-deps
                 
 ##### Step 5, navigate to the directory/folder where you saved the pupil-detection.tar.gz is. (No need to unzip this package!)
         For example, you saved in Downloads folder. C:/Downloads> pip install [filename].
 
 ##### Step 6, run the following command to install the package
-    pip install pupil-detection-2.0.1.tar.gz [or pupil-detection-2.0.2.tar.gz if you got the 2.0.2 version]  
+    pip install pupil-detection-4.0.0.tar.gz   
     
 ##### Step 7, if the installation succeed, run 'papp' to run the program. 
-   If not, check your environments and see if it contains the pupil-detection and all of the required packages(listed below). 
+   * If not, check your environments and see if it contains the pupil-detection and all of the required packages(listed below). 
    If it does not contains, the installation might not succeed, repeat the previous steps.
    
    ###### The required packages are
@@ -32,13 +32,18 @@ Pupil Detection Program
         scipy~=1.2.1
         dlib~=19.17
         opencv-python~=3.2.0
-
+    
+ ###### if you received a error about Tkinter, check you python version by 
+    conda list
+ ###### if it is not python2.7, then you will need to remove the enviornment by
+    conda env remove -n pupil_env
+ then repeat from step 2. :(
 
 ### Till now, the installation all done.
 
 
 ##### Step 8, click on the Calibration Button first to finish the calibration. 
     When calibrating eyes, press 'y' if the shown image has correctly circuled your pupil, otherwise, press 'n' or space.
-    When you fnished, press 'q' to close the window.
+    When you finished, press 'q' to close the window.
     
-##### Step 9, click on the 'Start' Button to start the program and n-back task program. The server program must runs beforehand.
+##### Step 9, click on the 'Start' Button to start the program and n-back task program.

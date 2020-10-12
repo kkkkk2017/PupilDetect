@@ -1,4 +1,3 @@
-import socket
 from imutils import face_utils
 import imutils
 import cv2
@@ -11,6 +10,9 @@ import tkMessageBox
 from scipy.spatial import distance as dist
 import numpy as np
 import pickle
+import csv
+from Task import Task
+from client import Client
 
 face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
 predictor = dlib.shape_predictor(face_file)
@@ -27,16 +29,14 @@ EYE_AR_CONSEC_FRAMES = 3  # for the number of consecutive frames the eye must be
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
-detector_params = cv2.SimpleBlobDetector_Params()
-detector_params.filterByArea = True
-detector_params.minArea = 45
-detector_params.maxArea = 200
-blob_detector = cv2.SimpleBlobDetector_create(detector_params)
+# detector_params = cv2.SimpleBlobDetector_Params()
+# detector_params.filterByArea = True
+# detector_params.minArea = 45
+# detector_params.maxArea = 200
+# blob_detector = cv2.SimpleBlobDetector_create(detector_params)
 
-RESIZE = 3
-
-global run
-run = True
+data_file = path.join(path.dirname(__file__), 'data.txt')
+control_file = path.join(path.dirname(__file__), 'control.txt')
 
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
@@ -70,31 +70,36 @@ def show_text(client, frame, ear, time):
 
 
 ###################### main detection ######################
-def pupil_preprocess(image, threshold, iris, show=False):
+def pupil_preprocess(image, threshold, iris, show=False, calib=False):
     hist = cv2.equalizeHist(image)
     open = cv2.morphologyEx(hist, cv2.MORPH_OPEN, (5, 5))
     close = cv2.morphologyEx(open, cv2.MORPH_CLOSE, (5, 5))
     gaublur = cv2.GaussianBlur(close, (5, 5), 1)
     _, thres = cv2.threshold(gaublur, threshold, 255, cv2.THRESH_BINARY)
     blur = cv2.medianBlur(thres, 5)
-
     #use findcontours
     _, contours, hierarchy = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    if show:
+        hstack = np.hstack((hist, open, close))
+        cv2.imshow('pupil', hstack)
 
     if contours is not None:
         # cv2.drawContours(image, contours, 0, (0, 255, 0), 1)
         closest = None
         closet_d = None
+
         for i in contours:
             (x, y), radius = cv2.minEnclosingCircle(i)
-            x = int(x)
-            y = int(y)
-            radius = int(radius)
+            if calib:
+                x = int(x)
+                y = int(y)
+                radius = int(radius)
 
             if radius >= iris[2]: continue
 
             ratio = radius/iris[2]
-            if ratio <= 0.2 or ratio >= 0.75: continue
+            if ratio <= 0.2 or ratio >= 0.72: continue
 
             dist_x = np.abs(iris[0]-x)
             dist_y = np.abs(iris[1]-y)
@@ -114,27 +119,30 @@ def pupil_preprocess(image, threshold, iris, show=False):
                     continue
                 else:
                     closest = (x, y, radius)
-
-        if show:
-            hstack = np.hstack((image, hist, open, close, gaublur, thres, blur))
-            cv2.imshow('pupil', hstack)
-
         return closest
 
-    ## using hough circles
+    # using hough circles
     # pupil = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, 1, 20, param1=10, param2=5, minRadius=0, maxRadius=10)
-
+    #
     # if pupil is not None:
+    #     if show:
+    #         hstack = np.hstack((hist, open, close))
+    #         cv2.imshow('pupil', hstack)
+    #
     #     # pupil = np.uint16(np.around(pupil, decimals=3))
     #     pupil = sort_results(pupil[0])
-    #     # print('pupil', pupil)
     #     #  size, y, x
-    #     if pupil[0][2] > 5 and pupil[0][2] < 10 and pupil[0][1] > 10 and pupil[0][0] < 55:
-    #         return pupil[0]
-
-    # if show:
-    #     hstack = np.hstack((image, hist, open, close, gaublur, thres, blur))
-    #     cv2.imshow('pupil', hstack)
+    #     x = pupil[0][0]
+    #     y = pupil[0][1]
+    #     radius = pupil[0][2]
+    #
+    #     dist_x = np.abs(iris[0]-x)
+    #     dist_y = np.abs(iris[1]-y)
+    #
+    #     if (np.abs(dist_x) <= 2) and (np.abs(dist_y) <= 2):
+    #         ratio = radius/iris[2]
+    #         if ratio > 0.2 and ratio < 0.72:
+    #             return (x, y, radius)
 
     return None
 
@@ -163,8 +171,10 @@ def iris_pupil(eye, threshold, calib=False):
 
     if iris is not None:
         if calib:
-            pupil = pupil_preprocess(gray, threshold, iris, show=True)
+            #if calib, reutrn int for circle()
+            pupil = pupil_preprocess(gray, threshold, iris, show=True, calib=True)
         else:
+            #else, return float
             pupil = pupil_preprocess(gray, threshold, iris)
         #when use findcontours
         if pupil is not None:
@@ -293,7 +303,7 @@ def process_both_eyes(client, left_eye, right_eye):
 
 
 ################### calibration ############################
-def handle_blink(shape, frame, show):
+def handle_blink(shape, frame, show=False):
     # detecting blink
     leftEye = shape[lStart: lEnd]
     rightEye = shape[rStart: rEnd]
@@ -307,7 +317,7 @@ def handle_blink(shape, frame, show):
     cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
     ear = (leftEAR + rightEAR) / 2.0
-    return ear
+    return np.around(ear, decimals=2)
 
 def calib_eye(left, right, eye, calib_count):
     result_lst = []
@@ -351,143 +361,138 @@ def calib_eye(left, right, eye, calib_count):
 
 
 def read_control():
-    control_file = path.join(path.dirname(__file__), 'control.txt')
     with open(control_file, 'r') as f:
         lines = f.readline(1)
         f.close()
     return lines[0]
 
 
-def read_error_list():
-    file = path.join(path.dirname(__file__), 'error_list.txt')
-    with open(file, 'r') as f:
-        lines = f.readlines()
-        f.close()
-    return lines
+def store_data(task):
+    with open(data_file, 'a') as f:
+        if task:
+            for i in task.to_List():
+                f.write(str(i)+',')
+            f.write('\n')
+    f.close()
 
 
-def send_data(client, socket, blink=False):
-
-    if blink:
-        data = [client.current_time, client.left_pupil if client.left_pupil != 0 else 0,
-                    client.right_pupil if client.right_pupil != 0 else 0, client.current_left_iris,
-                    client.current_right_iris, client.blink_count]
-        obj = pickle.dumps(data)
-        socket.sendall(b'[D]' + obj)
-    else:
-        data = [client.current_time, client.left_pupil if client.left_pupil != 0 else 0,
-                    client.right_pupil if client.right_pupil != 0 else 0,
-                    client.current_left_iris,
-                    client.current_right_iris, np.nan]
-        obj = pickle.dumps(data)
-        socket.sendall(b'[D]' + obj)
-
-    client.left_pupil = 0
-    client.right_pupil = 0
-    client.current_left_iris = 0
-    client.current_right_iris = 0
+# def send_data(client, socket, blink=False):
+#
+#     if blink:
+#         data = [client.current_time, client.left_pupil if client.left_pupil != 0 else 0,
+#                     client.right_pupil if client.right_pupil != 0 else 0, client.current_left_iris,
+#                     client.current_right_iris, client.blink_count]
+#         obj = pickle.dumps(data)
+#         socket.sendall(b'[D]' + obj)
+#     else:
+#         data = [client.current_time, client.left_pupil if client.left_pupil != 0 else 0,
+#                     client.right_pupil if client.right_pupil != 0 else 0,
+#                     client.current_left_iris,
+#                     client.current_right_iris, np.nan]
+#         obj = pickle.dumps(data)
+#         socket.sendall(b'[D]' + obj)
+#
+#     client.left_pupil = 0
+#     client.right_pupil = 0
+#     client.current_left_iris = 0
+#     client.current_right_iris = 0
 
 ##################### main program #########################
-def run_with_server(HOST='175.45.149.94', PORT=8080, client=None):
+def run(client=None):
+    if client is None:
+        client = Client()
 
-    try:
-        ServerSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        conn = ServerSocket.connect((HOST, PORT))
-        print('Connection Established')
-        run = '1'
-        last_update = time.time()
+    with open(data_file, 'w') as f:
+        pass
 
-        while True:
+    run = read_control()
+    last_update = time.time()
 
-            if run == '0':
-                print('run is 0')
-                break
+    while True:
+        if run == '0':
+            print('run is 0')
+            break
 
-            cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(0)
 
-            client.socket = ServerSocket
-            blink_t = time.time() # the time for send the blink (per 10 sec)
-            task_t = time.time() #the time for send the task (per 1 sec)
-            blink_counter = 0
-            # print('video up')
+        blink_t = time.time() # the time for send the blink (per 10 sec)
+        task_t = time.time() #the time for send the task (per 1 sec)
+        blink_counter = 0
+        # print('video up')
 
-            while (run == '1'):
-                # print(run)
-                run = read_control()
+        while (run != '0'):
+            # print(run)
+            run = read_control()
 
-                _, frame = cap.read()
-                frame = imutils.resize(frame, width=1000, height=1000)
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            _, frame = cap.read()
+            frame = imutils.resize(frame, width=1000, height=1000)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-                # detect face
-                rects = face_detector(gray, 0)
-                # print('get face')
-                for rect in rects:
-                    # detect sense organs
-                    shape = predictor(gray, rect)
-                    shape = face_utils.shape_to_np(shape)
-                    # print('blink')
-                    #detect blink
-                    ear = handle_blink(shape, frame=None, show=False)
-                    if ear < EYE_AR_THRESH:
-                        blink_counter += 1
-                        # otherwise, the eye aspect ratio is not below the blink
-                        # threshold
-                    else:
-                        # if the eyes were closed for a sufficient number of
-                        # then increment the total number of blinks
-                        if blink_counter >= EYE_AR_CONSEC_FRAMES:
-                            client.blink_count += 1
-                            # print('[*BLINK*] blink_count=', client.blink_count)
-                        # reset the eye frame counter
-                        blink_counter = 0
+            # detect face
+            rects = face_detector(gray, 0)
+            # print('get face')
+            for rect in rects:
+                # detect sense organs
+                shape = predictor(gray, rect)
+                shape = face_utils.shape_to_np(shape)
+                # print('blink')
+                #detect blink
+                ear = handle_blink(shape, frame=None, show=False)
+                if ear < EYE_AR_THRESH:
+                    blink_counter += 1
+                    # otherwise, the eye aspect ratio is not below the blink
+                    # threshold
+                else:
+                    # if the eyes were closed for a sufficient number of
+                    # then increment the total number of blinks
+                    if blink_counter >= EYE_AR_CONSEC_FRAMES:
+                        client.blink_count += 1
+                        # print('[*BLINK*] blink_count=', client.blink_count)
+                    # reset the eye frame counter
+                    blink_counter = 0
 
-                    # print('eye')
-                    # get eyes
-                    left_eye = extract_eye(frame, shape, lStart, lEnd)
-                    right_eye = extract_eye(frame, shape, rStart, rEnd)
+                # print('eye')
+                # get eyes
+                left_eye = extract_eye(frame, shape, lStart, lEnd)
+                right_eye = extract_eye(frame, shape, rStart, rEnd)
 
-                    # detect pupil size
-                    left_size, right_size = process_both_eyes(client, left_eye, right_eye)
-                    # print(left_size, right_size)
-                    #update time
-                    client.current_time = time.time()
+                # detect pupil size
+                left_size, right_size = process_both_eyes(client, left_eye, right_eye)
+                # print(left_size, right_size)
+                #update time
+                client.current_time = time.time()
 
-                    if left_size is not None:
-                        # print(left_size, right_size, 'data updated!!')
+                if left_size is not None:
+                    # print(left_size, right_size, 'data updated!!')
 
-                        client.current_left_iris = left_size[0]
-                        client.left_pupil = left_size[1]
+                    client.current_left_iris = left_size[0]
+                    client.left_pupil = left_size[1]
 
-                    if right_size is not None:
-                        # print(left_size, right_size, 'data updated!!')
-                        client.current_right_iris = right_size[0]
-                        client.right_pupil = right_size[1]
+                if right_size is not None:
+                    # print(left_size, right_size, 'data updated!!')
+                    client.current_right_iris = right_size[0]
+                    client.right_pupil = right_size[1]
 
+                if run == 'a':
                     if client.current_time - blink_t >= 10:
-                        send_data(client=client, socket=ServerSocket, blink=True)
+                        t = Task(client.current_time, client.left_pupil, client.right_pupil,
+                                 client.current_left_iris, client.current_right_iris, client.blink_count)
+                        store_data(t)
                         client.blink_count = 0
                         blink_t = time.time()
                         task_t = time.time()
 
-                    elif client.current_time - task_t >= 0.5:
+                    if client.current_time - task_t >= 0.5:
+                        # t = Task(client.current_time, 0, 0, 0, 0, np.nan)
                         if not (client.left_pupil == 0 and client.right_pupil == 0):
-                            send_data(client=client, socket=ServerSocket)
-                        task_t = time.time()
+                            t = Task(client.current_time, client.left_pupil, client.right_pupil,
+                                 client.current_left_iris, client.current_right_iris, np.nan)
+                            store_data(t)
+                            task_t = time.time()
 
-            errors = read_error_list()
-            obj = pickle.dumps(errors)
-            ServerSocket.sendall(b'[E]' + obj)
+    cap.release()
+    cv2.destroyAllWindows()
 
-    except socket.error as err:
-        print(err)
-
-    finally:
-        print('finally')
-        cap.release()
-        cv2.destroyAllWindows()
-
-        ServerSocket.close()
 
 
 def run_standalone(client):
@@ -533,10 +538,11 @@ def run_standalone(client):
 
             elif EAR_UNCHANGED == 2:
                 global EYE_AR_THRESH
-                EYE_AR_THRESH = MAX_EAR * 0.7
+                EYE_AR_THRESH = MAX_EAR * 0.75
                 EAR_UNCHANGED += 1  # make it to 5 so it won't run this line again
                 client.calib_blink = False  # calibration for blink end
                 tkMessageBox.showinfo('Calibration', 'Blink SET! {}'.format(EYE_AR_THRESH))
+                time.sleep(1)
                 show_hull = False
                 calib = 1
                 # print(EAR_UNCHANGED, EYE_AR_THRESH)
@@ -608,15 +614,12 @@ def run_standalone(client):
 if __name__ == '__main__':
     my_parser = argparse.ArgumentParser(description='run method')
     my_parser.add_argument('--method',
-                           help='server/standalone')
+                           help='run/standalone')
     my_parser.add_argument('--host',
                            help='host address to connect')
 
     args = my_parser.parse_args()
-    if args.method == 'server':
-        if args.host:
-            run_with_server(HOST=args.host)
-        else:
-            run_with_server()
-    elif args.method == 'standalone':
+    if args.method == 'standalone':
         run_standalone()
+    elif args.method == 'run':
+        run()

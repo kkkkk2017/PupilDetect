@@ -3,14 +3,17 @@ import os.path as path
 import random
 import time
 import csv
+import os
+import numpy as np
 
 global width
 global height
-global prac_task
-global instructions
 
-global error_list
-error_list = []
+data_file = path.join(path.dirname(__file__), 'data.txt')
+control_file = path.join(path.dirname(__file__), 'control.txt')
+root = os.environ['HOMEPATH']
+storing_path = path.join(root, 'CSV')
+error_file = path.join(storing_path, 'error_list.csv')
 
 tasks = ['0-back', '1-back', '2-back', '3-back']
 
@@ -146,19 +149,21 @@ class Application(Frame):
                 3: '3-back'}
         return dict.get(self.current_level)
 
-    def terminate(self):
-        # print(self.errors)
-        # write(self.errors)
-        store_error_list(self.errors)
-
-        control_file = path.join(path.dirname(__file__), 'control.txt')
+    def write_control(self, command):
         with open(control_file, 'w') as f:
-            f.write('0')
+            f.write(command)
             f.close()
 
+    def terminate(self):
+        self.write_control('0')
+        write_error(self.errors)
         self.master.destroy()
 
     def create_frame(self):
+        self.timer_label = Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
+                                 text='', padx=30, fg='red', bg='white')
+        self.timer_label.pack({'side': 'left'})
+
         self.level_label = Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
                                  text='Current Task: ' + self.level_to_string(), padx=30, bg='white')
         self.level_label.pack({'side': 'left'})
@@ -170,6 +175,10 @@ class Application(Frame):
         self.NEXT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='NEXT',
                            fg='black', command=self.reset_task, bg='white')
         self.NEXT.pack({"side": "left"})
+
+        self.REST = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='REST',
+                           fg='pink', command=self.rest, bg='white')
+        self.REST.pack({"side": "left"})
 
         self.QUIT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='QUIT',
                            fg='red', bg='white', command=self.terminate)
@@ -186,6 +195,12 @@ class Application(Frame):
         self.master.bind("<Key>", self.check_answer)
 
     def prepare_task(self):
+        try:
+            print('root', root)
+            os.mkdir(storing_path)
+        except OSError as e:
+            print(e)
+
         self.task_labels=[]
         for i in range(10):
             label = Label(self.task_frame, font=('calibri', 100, 'bold'), text=' ', fg='white', padx=30)
@@ -211,7 +226,36 @@ class Application(Frame):
         self.level_label.config(text='Current Task: ' + self.level_to_string())
         self.reset_error_labels()
 
+    def transfer_data_to_csv(self, task_num):
+        # output data into csv
+        data = []
+        #read from data
+        with open(data_file, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                d = line.split(',')
+                data.append(d)
+            f.close()
+
+        #save to csv
+        filename = path.join(storing_path, 'task_'+task_num+'.csv')
+        with open(filename, 'w') as f:
+            writer = csv.writer(f)
+            if data:
+                writer.writerow(['time', 'left_pupil', 'right_pupil', 'left_iris', 'right_iris', 'blink_count'])
+                for t in data:
+                    writer.writerow(t[:-1])
+                print('[CSV] DONE!' + f.name)
+            f.close()
+
+        #clear the data file
+        with open(data_file, 'w') as f:
+            pass
+        f.close()
+
     def reset_task(self):
+
+        self.timer_label.config(text='')
         self.t = 0
         # level 0 does not have prac task
         self.if_prac = True
@@ -224,9 +268,6 @@ class Application(Frame):
 
         else:
             self.label.config(text='\nCOMPLETED!!\n', font=('Lucida Grande', 100, 'bold'), pady=200)
-            global error_list
-            error_list = self.errors
-
 
     def reset_error_labels(self):
         self.ans_label.config(text='Your Answer is: ')
@@ -269,6 +310,7 @@ class Application(Frame):
                 self.error_made = 0
                 self.reset_error_labels()
                 self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Ready')
+                self.write_control('a')
 
             self.t += 1
             self.label.after(interval, self.start_task)
@@ -292,9 +334,11 @@ class Application(Frame):
             self.label.config(text='End', fg='black')
             self.t += 1
             self.label.after(1000, self.start_task)
+
         else:
             if not self.if_prac:
                 self.label.config(text='Take a Break', fg='black')
+                self.output_csv()
 
             self.back_1 = None
             self.current_letter = None
@@ -306,6 +350,25 @@ class Application(Frame):
             if self.if_prac:
                 self.if_prac = False
 
+    def output_csv(self, rest=False):
+        # stop attend data and output csv
+        self.write_control('n')
+        if not rest:
+            self.transfer_data_to_csv(str(self.current_level))
+        else:
+            self.transfer_data_to_csv(str(self.current_level) + '_rest')
+
+    def countdown(self, count):
+        self.timer_label.config(text='0:' + str(count))
+        if count == 0:
+            self.output_csv(rest=True)
+        if count > 0:
+            self.top_frame.after(1000, self.countdown, count - 1)
+
+    def rest(self):
+        self.write_control('a')
+        self.label.config(text = ' ')
+        self.countdown(60)
 
     def show_label(self, current, letter):
         label = current % 10 #[0-9]
@@ -333,21 +396,14 @@ class Application(Frame):
         self.task_labels[label].config(fg='black', text=letter)
 
 
-def store_error_list(error_list):
-    control_file = path.join(path.dirname(__file__), 'error_list.txt')
-    with open(control_file, 'w') as f:
-        if error_list:
-            for i in error_list:
-                f.write(i+'\n')
-    f.close()
-
-def write(error_list):
-    f = open('../../server/data/error_list.csv', 'w')
-    with f:
+def write_error(error_list):
+    with open(error_file, 'w') as f:
         writer = csv.writer(f)
         if error_list:
             writer.writerow([i for i in error_list])
             print('[CSV] DONE!' + f.name)
+        f.close()
+
 
 def run():
     root = Tk()
@@ -360,6 +416,7 @@ def run():
 
     app = Application(root)
     app.mainloop()
+
 
 if __name__ == '__main__':
     root = Tk()

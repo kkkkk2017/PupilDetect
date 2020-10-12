@@ -1,7 +1,6 @@
 class Client:
     def __init__(self):
         self.start_time = 0  # the time of starting the task
-        self.socket = None
         self.left_pupil = 0  # current second pupil data
         self.right_pupil = 0
         self.current_left_iris = 0
@@ -56,7 +55,6 @@ class Client:
         right_pupil = self.get_result(right_pupil)
         self.right_x = right_pupil[0]
         self.right_y = right_pupil[1]
-
         self.right_threshold = [min(right_threshold) - 5, max(right_threshold) + 5]  # allow little flexible for light
 
         # print('filter set [left]', self.left_iris, self.left_x, self.left_y, self.left_threshold)
