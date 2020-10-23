@@ -241,7 +241,10 @@ class Application(Frame):
         with open(filename, 'w') as f:
             writer = csv.writer(f)
             if data:
-                writer.writerow(['time', 'left_pupil', 'right_pupil', 'left_iris', 'right_iris', 'blink_count'])
+                writer.writerow(['time', 'left_pupil', 'left_pupil_x', 'left_pupil_y',
+                                 'right_pupil', 'right_pupil_x', 'right_pupil_y',
+                                 'left_iris', 'left_iris_x', 'left_iris_y',
+                                 'right_iris', 'right_iris_x', 'right_iris_y', 'blink_count'])
                 for t in data:
                     writer.writerow(t[:-1])
                 print('[CSV] DONE!' + f.name)
@@ -361,6 +364,7 @@ class Application(Frame):
         self.timer_label.config(text='0:' + str(count))
         if count == 0:
             self.output_csv(rest=True)
+            self.label.config(text='Time\'s up')
         if count > 0:
             self.top_frame.after(1000, self.countdown, count - 1)
 
@@ -396,10 +400,12 @@ class Application(Frame):
 
 
 def write_error(error_list):
+    print(error_list)
     with open(error_file, 'w') as f:
         writer = csv.writer(f)
         if error_list:
-            writer.writerow([i for i in error_list])
+            for i in error_list:
+                writer.writerow([i])
             print('[CSV] DONE!' + f.name)
         f.close()
 

@@ -38,7 +38,7 @@ def run_calib():
 def main():
     root = tkinter.Tk()
     root.title('Pupil Detector')
-    root.resizable(0, 0)
+    # root.resizable(False, False)
 
     calib = tkinter.Button(text='CALIBRATE', fg='blue', bg='white', width=20,
                    font=('calibri', 13, 'bold'), command=run_calib)

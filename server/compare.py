@@ -12,16 +12,16 @@ def input_data(file_1, file_2):
         tdf = pandas.read_csv(file_2)
         tobii_left = tdf['left_pupil']
         tobii_right = tdf['right_pupil']
-        tobii_mean = tdf['mean']
+        # tobii_mean = tdf['mean']
     else:
         tdf = pandas.read_excel(file_2, index_col=0, sheet_name='Data')
         tobii_left = tdf['Pupil diameter left [mm]'][:len(df['left_pupil'])]
         tobii_right = tdf['Pupil diameter right [mm]'][:len(df['left_pupil'])]
-        tobii_mean = []
-        for i, c in zip(tobii_left, tobii_right):
-            tobii_mean.append(np.mean((i, c)))
+        # tobii_mean = []
+        # for i, c in zip(tobii_left, tobii_right):
+        #     tobii_mean.append(np.mean((i, c)))
 
-    return df, tobii_left, tobii_right, tobii_mean
+    return df, tobii_left, tobii_right, None
 
 def draw_raw_data(df, tobii_left, tobii_right, tobii_mean):
     # print(tdf.columns)
@@ -53,8 +53,14 @@ def cal_PLR(pupil, iris):
     return 0
 
 def preprocess(df):
+    blink_count = df['blink_count']
+    blink_count = blink_count.fillna(0)
+    df['blink_count'] = blink_count
+
+    df = df.dropna()
     print('[RAW]total values:', len(df['left_pupil']))
-    total_blink = np.sum([i for i in df['blink_count'] if not np.isnan(i)])
+
+    total_blink = np.sum([i for i in df['blink_count']])
     print('total blink', total_blink)
 
     left_list = {}
@@ -93,12 +99,12 @@ def preprocess(df):
             left_list.update(add_num(time1//1, left_PLR_1, left_PLR_2))
             right_list.update(add_num(time1//1, right_PLR_1, right_PLR_2))
         else:
-            left_PLR_1.update({time1//1: left_PLR_1})
+            left_PLR_list.update({time1//1: left_PLR_1})
             right_PLR_list.update({time1//1: right_PLR_1})
             left_list.update({time1//1: left1})
             right_list.update({time1//1: right1})
 
-    return left_list, right_list, _
+    return left_list, right_list, left_PLR_list, right_PLR_list
 
 def add_num(time, num1, num2):
     if num1 == 0 and num2 != 0:
@@ -197,6 +203,24 @@ def sort_dict(dict):
     print('non-0 values:', len(x))
     return x, y
 
+def cal_amplitude(d, sec=2):
+    result = []
+    if isinstance(d, dict):
+        for i in range(0, len(d.keys()), sec):
+            v1 = d.get(i)
+            v2 = d.get(i+2)
+            if v2 is None:
+                break
+            result.append((v2-v1)*0.1*0.5)
+    elif isinstance(d, list):
+        for i in range(0, len(d), sec):
+            v1 = d[i]
+            if i+2 >= len(d):
+                break
+            v2 = d[i+2]
+            result.append(v2-v1)
+
+    return result
 
 if __name__ == '__main__':
     my_parser = argparse.ArgumentParser(description='filenames')
@@ -206,52 +230,68 @@ if __name__ == '__main__':
                            help='csv/xlsx file')
 
     args = my_parser.parse_args()
-    df, tobii_left, tobii_right, tobii_mean = input_data(args.file_1, args.file_2)
-    left_pupil, right_pupil, mean_pupil = preprocess(df)
+    file_1 = args.file_1
+    file_2 = args.file_2
+
+    df, tobii_left, tobii_right, tobii_mean = input_data(file_1, file_2)
+    left_pupil, right_pupil, left_PLR, right_PLR = preprocess(df)
 
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
-    comp_left = left_pupil
-    comp_right = right_pupil
-    comp_mean = mean_pupil
 
-    x_1 = comp_left.keys()
-    x_2 = comp_right.keys()
-    # x_3 = comp_mean.keys()
-
-    left_x, left_y = sort_dict(comp_left)
-    right_x, right_y = sort_dict(comp_right)
+    # left_PLR_x, left_PLR_y = sort_dict(left_PLR)
+    # right_PLR_x, right_PLR_y = sort_dict(right_PLR)
     # mean_x, mean_y = sort_dict(comp_mean)
 
     # ax1.plot(np.zeros(max(left_x)), color='red', label='y=0')
     # ax2.plot(np.zeros(max(right_x)), color='red', label='y=0')
     # ax3.plot(np.zeros(max(mean_x)), color='red', label='y=0')
 
-    ax1.plot(left_x, left_y, color='green', label='opencv program left PLR')
-    ax2.plot(right_x, right_y, color='blue', label='opencv program right PLR')
+    #draw PLR
+    # ax1.plot(left_x, left_y, color='green', label='opencv program left PLR')
+    # ax2.plot(right_x, right_y, color='blue', label='opencv program right PLR')
     # # ax3.plot(mean_x, mean_y, color='pink', label='file 1 mean')
     #
-    ax1.scatter(comp_left.keys(), comp_left.values(), color='red', s=2)
-    ax2.scatter(comp_right.keys(), comp_right.values(), color='red', s=2)
+    # ax1.scatter(comp_left.keys(), comp_left.values(), color='red', s=2)
+    # ax2.scatter(comp_right.keys(), comp_right.values(), color='red', s=2)
     # ax3.scatter(comp_mean.keys(), comp_mean.values(), color='purple', s=1)
 
-    tobii_left = cal_delta2(tobii_left[10:-10])
-    tobii_right = cal_delta2(tobii_right[10:-10])
+    # print('\ncalculating {} left'.format(file_2))
+    # tobii_left = cal_delta2(tobii_left[10:-10])
+    # print('calculating {} right'.format(file_2))
+    # tobii_right = cal_delta2(tobii_right[10:-10])
 
-    left = cal_delta2(df['left_pupil'])
-    right = cal_delta2(df['right_pupil'])
+    left_x, left_y = sort_dict(left_pupil)
+    right_x, right_y = sort_dict(right_pupil)
 
-    ax1.plot(left.keys(), left.values(), color='yellow', label='left_pupil_dilation')
-    ax2.plot(right.keys(), right.values(), color='salmon', label='right_pupil_dilation')
+    # print('\ncalculating {} left'.format(file_1))
+    # left = cal_delta2(df['left_pupil'])
+    # print('calculating {} right'.format(file_1))
+    # right = cal_delta2(df['right_pupil'])
+    left = cal_amplitude(left_pupil)
+    right = cal_amplitude(right_pupil)
+    width=0.35
 
-    ax1.plot(tobii_left.keys(), tobii_left.values(), color='lightblue', label='tobii left_pupil_dilation')
-    ax2.plot(tobii_right.keys(), tobii_right.values(), color='pink', label='tobii right_pupil_dilation')
+    ax1.bar(np.arange(len(left))+width, left, color='yellow', label='{} left_pupil_dilation'.format(file_1))
+    ax2.bar(np.arange(len(right))+width, right, color='salmon', label='{} right_pupil_dilation'.format(file_1))
 
-    ax1.scatter(tobii_left.keys(), tobii_left.values(), color='purple', s=2)
-    ax2.scatter(tobii_right.keys(), tobii_right.values(), color='purple', s=2)
+    # ploting file 2
 
+    tobii_left = cal_amplitude(list(tobii_left.values))[:len(left)]
+    tobii_right = cal_amplitude(list(tobii_right.values))[:len(right)]
 
-    ax1.scatter(left.keys(), left.values(), color='purple', s=2)
-    # print(left)
+    # tobii_left_x = list(tobii_left.keys())[: list(left.keys())[-1]]
+    # tobii_right_x = list(tobii_right.keys())[: list(right.keys())[-1]]
+    #
+    # tobii_left_y = list(tobii_left.values())[: list(left.keys())[-1]]
+    # tobii_right_y = list(tobii_right.values())[: list(right.keys())[-1]]
+
+    ax1.bar(np.arange(len(tobii_left))+width, tobii_left, width, color='lightblue', label='{} left_pupil_dilation'.format(file_2))
+    ax2.bar(np.arange(len(tobii_right))+width, tobii_right, width, color='pink', label='{} right_pupil_dilation'.format(file_2))
+
+    # ax1.scatter(tobii_left_x, tobii_left_y, color='purple', s=2)
+    # ax2.scatter(tobii_right_x, tobii_right_y, color='purple', s=2)
+
+    # ax1.scatter(left.keys(), left.values(), color='purple', s=2)
     # ax2.scatter(right.keys(), right.values(), color='purple', s=2)
 
     ax1.legend(loc='upper right')
@@ -260,10 +300,14 @@ if __name__ == '__main__':
 
     ax1.grid()
     ax2.grid()
+
+    # ax1.set_xlim(right=0)
+    ax2.set_xlim(left=0)
+
     # ax3.grid()
-    x_ticks = np.arange(0, left.keys()[-1], 10)
+    x_ticks = np.arange(0, len(left), 10)
     plt.xticks(x_ticks)
 
-    plt.xlabel('seconds')
+    plt.xlabel('2 seconds')
     plt.ylabel('dilation rate')
     plt.show()

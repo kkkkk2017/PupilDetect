@@ -56,17 +56,17 @@ def eye_aspect_ratio(eye):
 
 def show_text(client, frame, ear, time):
     cv2.putText(frame, "Blinks: {}".format(client.blink_count), (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
-    cv2.putText(frame, "EAR:{:.2f}".format(ear), (10, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+    cv2.putText(frame, "EAR:{:.2f}".format(ear), (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
 
-    cv2.putText(frame, 'Left Pupil: {:.5f}'.format(client.left_pupil), (600, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
-    cv2.putText(frame, 'Right Pupil: {:.5f}'.format(client.right_pupil), (600, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+    cv2.putText(frame, 'Left Pupil: {:.5f}'.format(client.current_left_pupil), (650, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+    cv2.putText(frame, 'Right Pupil: {:.5f}'.format(client.current_right_pupil), (650, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
 
-    cv2.putText(frame, 'Time {:2f}'.format(time - client.start_time), (10, 600),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1)
+    cv2.putText(frame, 'Time {:2f}'.format(time - client.start_time), (10, 650),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
 
 
 ###################### main detection ######################
@@ -91,15 +91,19 @@ def pupil_preprocess(image, threshold, iris, show=False, calib=False):
 
         for i in contours:
             (x, y), radius = cv2.minEnclosingCircle(i)
+
+            # calibration uses integer for drawing circle
             if calib:
                 x = int(x)
                 y = int(y)
                 radius = int(radius)
 
+            # if raduis > iris radius, then it is not
             if radius >= iris[2]: continue
 
             ratio = radius/iris[2]
-            if ratio <= 0.2 or ratio >= 0.72: continue
+            # check pupil/iris ratio
+            if ratio <= 0.2 or ratio >= 0.60: continue
 
             dist_x = np.abs(iris[0]-x)
             dist_y = np.abs(iris[1]-y)
@@ -107,6 +111,7 @@ def pupil_preprocess(image, threshold, iris, show=False, calib=False):
             if (np.abs(dist_x) > 2) or np.abs(dist_y) > 2: continue
 
             d = np.sqrt( np.square(dist_x) + np.square(dist_y) )
+            # print('distance: ', d)
 
             if d > 10: continue
             # print(radius, iris[2], ratio, d)
@@ -115,10 +120,10 @@ def pupil_preprocess(image, threshold, iris, show=False, calib=False):
                 closet_d = d
                 closest = (x, y, radius)
             else:
-                if closet_d <= d:
-                    continue
-                else:
+                print(closet_d, closest, 'compare to', d, (x, y, radius))
+                if d < closet_d:
                     closest = (x, y, radius)
+
         return closest
 
     # using hough circles
@@ -148,8 +153,9 @@ def pupil_preprocess(image, threshold, iris, show=False, calib=False):
 
 
 def iris_preprocess(image):
-    blur_iris = cv2.GaussianBlur(image, (5, 5), 0)
+    blur_iris = cv2.GaussianBlur(image, (5, 5), 1)
     edge = cv2.Canny(blur_iris, 60, 60)
+    # cv2.imshow('iris', edge)
     # open = cv2.morphologyEx(edge, cv2.MORPH_OPEN, (3, 3))
     iris = cv2.HoughCircles(edge, cv2.HOUGH_GRADIENT, 1, 5, param1=10, param2=10, minRadius=18, maxRadius=25)
     if iris is not None:
@@ -231,6 +237,7 @@ def get_keypoints(client=None, image=None, threshold=0, side=None):
         if iris[2] >= iris_limit[2][0] and iris[2] <= iris_limit[2][1]: #check size
             #check pupil
             # print('check pupil', side, pupil, min_x, max_x, min_y, max_y)
+
             if pupil[0] >= min_x and pupil[0] <= max_x: #check x
                 if pupil[1] >= min_y and pupil[1] <= max_y: #check y
                     return (iris[2], pupil[2]) #only need the radius
@@ -256,7 +263,7 @@ def eye_process(client, eye, side):
         max_pupil_x = client.right_x[1] if client.right_x else 55
         min_pupil_y = client.right_y[0] if client.right_y else 13
         max_pupil_y = client.right_y[1] if client.right_y else 20
-        iris_limit = client.right_iris #[(min_x, max_x), (min_y, max_y), (min_size, max_size)]
+        iris_limit = client.right_iris # [(min_x, max_x), (min_y, max_y), (min_size, max_size)]
         start_thres = client.right_threshold[0] if client.right_threshold else 0
         end_thres = client.right_threshold[1] if client.right_threshold else 130
 
@@ -273,6 +280,7 @@ def eye_process(client, eye, side):
     for thres in range(start_thres, end_thres):
         result = iris_pupil(eye, thres)
         if result is not None:
+            # print('result', result)
             iris, pupil = result
             result_set.update({thres: result})
             value_i = (distance(iris[0], iris_mean_x, iris[1], iris_mean_y), np.abs(iris[2]-iris_mean_size) )
@@ -285,7 +293,7 @@ def eye_process(client, eye, side):
         # print(dist_set)
         result = result_set.get(dist_set[0][0])
         # print('result=', result)
-        return result[0][2], result[1][2] #only return the size
+        return result[0], result[1] #only return the coordinate and size
 
     return None
 
@@ -298,7 +306,6 @@ def distance(x1, x2, y1, y2):
 def process_both_eyes(client, left_eye, right_eye):
     left_optimal = eye_process(client, left_eye, 0)
     right_optimal = eye_process(client, right_eye, 1)
-
     return left_optimal, right_optimal
 
 
@@ -311,10 +318,10 @@ def handle_blink(shape, frame, show=False):
     rightEAR = eye_aspect_ratio(rightEye)
 
     # if show:
-    leftEyeHull = cv2.convexHull(leftEye)
-    rightEyeHull = cv2.convexHull(rightEye)
-    cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-    cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+    # leftEyeHull = cv2.convexHull(leftEye)
+    # rightEyeHull = cv2.convexHull(rightEye)
+    # cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
+    # cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
     ear = (leftEAR + rightEAR) / 2.0
     return np.around(ear, decimals=2)
@@ -366,7 +373,6 @@ def read_control():
         f.close()
     return lines[0]
 
-
 def store_data(task):
     with open(data_file, 'a') as f:
         if task:
@@ -375,27 +381,34 @@ def store_data(task):
             f.write('\n')
     f.close()
 
+def update_data(client, left_result, right_result):
+    # print(left_result, right_result)
 
-# def send_data(client, socket, blink=False):
-#
-#     if blink:
-#         data = [client.current_time, client.left_pupil if client.left_pupil != 0 else 0,
-#                     client.right_pupil if client.right_pupil != 0 else 0, client.current_left_iris,
-#                     client.current_right_iris, client.blink_count]
-#         obj = pickle.dumps(data)
-#         socket.sendall(b'[D]' + obj)
-#     else:
-#         data = [client.current_time, client.left_pupil if client.left_pupil != 0 else 0,
-#                     client.right_pupil if client.right_pupil != 0 else 0,
-#                     client.current_left_iris,
-#                     client.current_right_iris, np.nan]
-#         obj = pickle.dumps(data)
-#         socket.sendall(b'[D]' + obj)
-#
-#     client.left_pupil = 0
-#     client.right_pupil = 0
-#     client.current_left_iris = 0
-#     client.current_right_iris = 0
+    if left_result is not None:
+        left_iris, left_pupil = left_result
+        # print('left_iris',left_iris)
+        # print('left_pupil', left_pupil)
+        # print(left_size, right_size, 'data updated!!')
+        client.current_left_iris_x = left_iris[0]
+        client.current_left_iris_y = left_iris[1]
+        client.current_left_iris = left_iris[2]
+
+        client.current_left_pupil_x = left_pupil[0]
+        client.current_left_pupil_y = left_pupil[1]
+        client.current_left_pupil = left_pupil[2]
+
+    if right_result is not None:
+        right_iris, right_pupil = right_result
+
+        client.current_right_iris_x = right_iris[0]
+        client.current_right_iris_y = right_iris[1]
+        client.current_right_iris = right_iris[2]
+
+        client.current_right_pupil_x = right_pupil[0]
+        client.current_right_pupil_y = right_pupil[1]
+        client.current_right_pupil = right_pupil[2]
+
+    return client
 
 ##################### main program #########################
 def run(client=None):
@@ -422,6 +435,8 @@ def run(client=None):
 
         while (run != '0'):
             # print(run)
+            last_t = time.time()
+            print(last_t - client.current_time)
             run = read_control()
 
             _, frame = cap.read()
@@ -457,38 +472,48 @@ def run(client=None):
                 right_eye = extract_eye(frame, shape, rStart, rEnd)
 
                 # detect pupil size
-                left_size, right_size = process_both_eyes(client, left_eye, right_eye)
+                left_result, right_result = process_both_eyes(client, left_eye, right_eye)
+                # print(left_result, right_result)
                 # print(left_size, right_size)
                 #update time
                 client.current_time = time.time()
+                client = update_data(client, left_result, right_result)
 
-                if left_size is not None:
-                    # print(left_size, right_size, 'data updated!!')
-
-                    client.current_left_iris = left_size[0]
-                    client.left_pupil = left_size[1]
-
-                if right_size is not None:
-                    # print(left_size, right_size, 'data updated!!')
-                    client.current_right_iris = right_size[0]
-                    client.right_pupil = right_size[1]
+                if run == 'n':
+                    client.blink_count = 0
 
                 if run == 'a':
                     if client.current_time - blink_t >= 10:
-                        t = Task(client.current_time, client.left_pupil, client.right_pupil,
-                                 client.current_left_iris, client.current_right_iris, client.blink_count)
+                        t = Task(time=client.current_time,
+                                 left_pupil=client.current_left_pupil, left_pupil_x=client.current_left_pupil_x,
+                                 left_pupil_y=client.current_left_pupil_y,
+                                 right_pupil=client.current_right_pupil, right_pupil_x=client.current_right_pupil_x,
+                                 right_pupil_y=client.current_right_pupil_y,
+                                 left_iris=client.current_left_iris, left_iris_x=client.current_left_iris_x,
+                                 left_iris_y=client.current_left_iris_y,
+                                 right_iris=client.current_right_iris, right_iris_x=client.current_right_iris_x,
+                                 right_iris_y=client.current_right_iris_y,
+                                 blink_count=client.blink_count)
                         store_data(t)
-                        client.blink_count = 0
+                        client.reset_data()
                         blink_t = time.time()
                         task_t = time.time()
 
-                    if client.current_time - task_t >= 0.5:
-                        # t = Task(client.current_time, 0, 0, 0, 0, np.nan)
-                        if not (client.left_pupil == 0 and client.right_pupil == 0):
-                            t = Task(client.current_time, client.left_pupil, client.right_pupil,
-                                 client.current_left_iris, client.current_right_iris, np.nan)
-                            store_data(t)
-                            task_t = time.time()
+                    # elif client.current_time - task_t >= 0.001:
+                    if not (client.current_left_pupil == 0 and client.current_right_pupil == 0):
+                        t = Task(time=client.current_time,
+                                 left_pupil=client.current_left_pupil, left_pupil_x=client.current_left_pupil_x,
+                                 left_pupil_y=client.current_left_pupil_y,
+                                 right_pupil=client.current_right_pupil, right_pupil_x=client.current_right_pupil_x,
+                                 right_pupil_y=client.current_right_pupil_y,
+                                 left_iris=client.current_left_iris, left_iris_x=client.current_left_iris_x,
+                                 left_iris_y=client.current_left_iris_y,
+                                 right_iris=client.current_right_iris, right_iris_x=client.current_right_iris_x,
+                                 right_iris_y=client.current_right_iris_y,
+                                 blink_count=np.nan)
+                        store_data(t)
+                        client.reset_data()
+                        task_t = time.time()
 
     cap.release()
     cv2.destroyAllWindows()
@@ -563,7 +588,6 @@ def run_standalone(client):
                 blink_counter = 0
 
             # get eyes
-
             if calib == 1 and left:
                 left_eye = extract_eye(frame, shape, lStart, lEnd)
                 r1, r2, calib_count = calib_eye(left, right, left_eye, calib_count)
@@ -588,15 +612,21 @@ def run_standalone(client):
                 # detect pupil size
                 left_eye = extract_eye(frame, shape, lStart, lEnd)
                 right_eye = extract_eye(frame, shape, rStart, rEnd)
-                left_size, right_size = process_both_eyes(client, left_eye, right_eye)
 
+                # detect pupil size
+                left_result, right_result = process_both_eyes(client, left_eye, right_eye)
+                # print(left_size, right_size)
+                #update time
                 client.current_time = time.time()
-                if left_size is not None:
-                    client.current_left_iris = left_size[0]
-                    client.left_pupil = left_size[1]
-                if right_size is not None:
-                    client.current_right_iris = right_size[0]
-                    client.right_pupil = right_size[1]
+                client = update_data(client, left_result, right_result)
+
+                # client.current_time = time.time()
+                # if left_size is not None:
+                #     client.current_left_iris = left_size[0]
+                #     client.current_left_pupil = left_size[1]
+                # if right_size is not None:
+                #     client.current_right_iris = right_size[0]
+                #     client.current_right_pupil = right_size[1]
 
             show_text(client, frame, ear, time.time())
 
@@ -608,7 +638,8 @@ def run_standalone(client):
 
     cap.release()
     cv2.destroyAllWindows()
-    client.reset()
+    client.reset_start_time()
+    client.reset_data()
     return client
 
 if __name__ == '__main__':
