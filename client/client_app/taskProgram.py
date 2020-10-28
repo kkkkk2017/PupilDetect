@@ -17,9 +17,10 @@ error_file = path.join(storing_path, 'error_list.csv')
 tasks = ['0-back', '1-back', '2-back', '3-back']
 
 prac_task = {
-    '1-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O'],
-    '2-back prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O',],
-    '3-back prac': ['H', 'I', 'I', 'I', 'O', 'H', 'I', 'I', 'I', 'O', 'C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'I', 'O',],
+    '0-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'H', 'P'],
+    '1-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'H', 'P', 'H', 'A', 'A', 'B', 'E', 'G', 'A', 'C', 'B', 'B'],
+    '2-back prac': ['C', 'A', 'C', 'B', 'A', 'B', 'I', 'I', 'H', 'P', 'H', 'B', 'A', 'B', 'E', 'G', 'A', 'G', 'B', 'B'],
+    '3-back prac':  ['C', 'A', 'B', 'C', 'D', 'A', 'C', 'P', 'A', 'A', 'F', 'A', 'A', 'B', 'E', 'G', 'A', 'C', 'B', 'B'],
 }
 
 instructions = {
@@ -69,7 +70,6 @@ class Application(Frame):
         self.if_prac = False
         self.not_done_level = [1, 2, 3]
         self.errors = []
-        self.error_made = 0
         self.input = 0
 
         self.prepare_task() # only run 1 time
@@ -98,7 +98,8 @@ class Application(Frame):
             if self.input == 1:
                 if (self.back_1 == self.current_letter and ans == 'y') or \
                     (self.back_1 != self.current_letter and ans == 'o'):
-                    self.ans_label.config(text='Your Answer is Correct')
+                    if self.if_prac:
+                        self.ans_label.config(text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
 
@@ -109,7 +110,8 @@ class Application(Frame):
             if self.input == 1:
                 if (self.back_2 == self.current_letter and ans == 'y') or \
                     (self.back_2 != self.current_letter and ans == 'o'):
-                    self.ans_label.config(text='Your Answer is Correct')
+                    if self.if_prac:
+                        self.ans_label.config(text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
 
@@ -120,15 +122,15 @@ class Application(Frame):
             if self.input == 1:
                 if (self.back_3 == self.current_letter and ans == 'y') or \
                     (self.back_3 != self.current_letter and ans == 'o'):
-                    self.ans_label.config(text='Your Answer is Correct')
+                    if self.if_prac:
+                        self.ans_label.config(text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
 
     def handle_wrong(self):
-        self.ans_label.config(text='Your Answer is Wrong')
-        self.error_made += 1
-        self.error_label.config(text='| Errors: ' + str(self.error_made))
-        if not self.if_prac:
+        if self.if_prac:
+            self.ans_label.config(text='Your Answer is Wrong')
+        else:
             self.errors.append(str(time.time()))
 
     def read_tasks(self):
@@ -167,11 +169,15 @@ class Application(Frame):
                                  text='Current Task: ' + self.level_to_string(), padx=30, bg='white')
         self.level_label.pack({'side': 'left'})
 
-        self.START = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='START',
+        self.PRAC = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='PRAC',
+                            fg='blue', command=self.start_prac, bg='white')
+        self.PRAC.pack({"side": "left"})
+
+        self.START = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='START TASK',
                             fg='green', command=self.start_task, bg='white')
         self.START.pack({"side": "left"})
 
-        self.NEXT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='NEXT',
+        self.NEXT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='NEXT TASK',
                            fg='black', command=self.reset_task, bg='white')
         self.NEXT.pack({"side": "left"})
 
@@ -182,10 +188,6 @@ class Application(Frame):
         self.QUIT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='QUIT',
                            fg='red', bg='white', command=self.terminate)
         self.QUIT.pack({"side": "left"})
-
-        self.error_label =  Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
-                                 text='|Errors: ' + str(self.error_made), padx=40, bg='white')
-        self.error_label.pack({'side': 'right'})
 
         self.ans_label =  Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
                                  text='Your Answer is ', padx=30, bg='white')
@@ -223,7 +225,6 @@ class Application(Frame):
         instruction = instructions.get(self.level_to_string())
         self.label.config(text=instruction, font=('calibri', 30), fg='black')
         self.level_label.config(text='Current Task: ' + self.level_to_string())
-        self.reset_error_labels()
 
     def transfer_data_to_csv(self, task_num):
         # output data into csv
@@ -256,12 +257,9 @@ class Application(Frame):
         f.close()
 
     def reset_task(self):
-
+        self.ans_label.config(text='')
         self.timer_label.config(text='')
         self.t = 0
-        # level 0 does not have prac task
-        self.if_prac = True
-        self.error_made = 0
 
         if len(self.not_done_level) > 0:
             get = random.randint(0, len(self.not_done_level)-1)
@@ -271,12 +269,69 @@ class Application(Frame):
         else:
             self.label.config(text='\nCOMPLETED!!\n', font=('Lucida Grande', 100, 'bold'), pady=200)
 
-    def reset_error_labels(self):
-        self.ans_label.config(text='Your Answer is: ')
-        self.error_label.config(text='| Errors: ' + str(self.error_made))
+
+    def start_prac(self, interval=2000):
+        self.if_prac = True
+        if self.input == 0:
+            # 1 back task, not counting the first letter
+            if self.current_level == 1 and (self.t - 2) > 1 and (self.t - 2) <= len(self.current_task):
+                self.handle_wrong()
+            # 2 back task, not counting the second letter
+            elif self.current_level == 2 and (self.t - 2) > 2 and (self.t - 2) <= len(self.current_task):
+                self.handle_wrong()
+            # 3 back task, not counting the third letter
+            elif self.current_level == 3 and (self.t - 2) > 3 and (self.t - 2) <= len(self.current_task):
+                self.handle_wrong()
+        else:
+            self.input = 0
+
+        task = self.level_to_string() + ' prac'
+        letters = prac_task[task]
+
+        if self.t == 2:
+            self.label.config(fg='white')
+            self.task_frame.place(x=0, y=200)
+
+        if self.t == 0:
+            self.task_frame.place(x=0, y=100)
+            self.task_labels[4].config(fg='white')
+            self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Practice')
+            self.ans_label.config(text='Your Answer is ')
+            self.t += 1
+            self.label.after(interval, self.start_prac)
+
+        elif self.t == 1:
+            self.label.config(text='GO', fg='black')
+            self.t += 1
+            self.label.after(interval, self.start_prac)
+
+        elif self.t - 2 < len(letters):
+            current = self.t - 2
+            self.show_label(current, letters[current])
+            self.t += 1
+            self.label.after(interval, self.start_prac)
+
+        elif self.t - 2 == len(letters):
+            # hide task frame
+            self.task_frame.place(x=0, y=100)
+            # self.task_labels[self.t - 3].config(fg='white')
+            self.task_labels[9].config(fg='white')
+            self.label.config(text='End', fg='black')
+            self.t += 1
+            self.label.after(1000, self.start_prac)
+
+        else:
+            self.back_1 = None
+            self.current_letter = None
+            self.back_2 = None
+            self.back_3 = None
+
+            # show main labels
+            self.t = 0
 
 
     def start_task(self, interval=2000):
+        self.if_prac = False
         #check the last letter
         if self.input == 0:
             #1 back task, not counting the first letter
@@ -292,12 +347,7 @@ class Application(Frame):
             self.input = 0
 
         # t = 0 - 5
-        # if showing the prac task
-        if self.if_prac:
-            task = self.level_to_string() + ' prac'
-            letters = prac_task[task]
-        else:
-            letters = self.current_task
+        letters = self.current_task
 
         if self.t == 2:
             self.label.config(fg='white')
@@ -306,13 +356,9 @@ class Application(Frame):
         if self.t == 0:
             self.task_frame.place(x=0, y=100)
             self.task_labels[4].config(fg='white')
-            if self.if_prac:
-                self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Practice')
-            else:
-                self.error_made = 0
-                self.reset_error_labels()
-                self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Ready')
-                self.write_control('a')
+            self.ans_label.config(text='')
+            self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Ready')
+            self.write_control('a')
 
             self.t += 1
             self.label.after(interval, self.start_task)
@@ -338,9 +384,8 @@ class Application(Frame):
             self.label.after(1000, self.start_task)
 
         else:
-            if not self.if_prac:
-                self.label.config(text='Take a Break', fg='black')
-                self.output_csv()
+            self.label.config(text='Take a Break', fg='black')
+            self.output_csv()
 
             self.back_1 = None
             self.current_letter = None
@@ -349,8 +394,6 @@ class Application(Frame):
 
             # show main labels
             self.t = 0
-            if self.if_prac:
-                self.if_prac = False
 
     def output_csv(self, rest=False):
         # stop attend data and output csv

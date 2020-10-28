@@ -19,7 +19,7 @@ Pupil Detection Program
         For example, you saved in Downloads folder. C:/Downloads> pip install [filename].
 
 ##### Step 6, run the following command to install the package
-    pip install pupil-detection-5.0.0.tar.gz   
+    pip install pupil-detection-5.2.0.tar.gz   
     
 ##### Step 7, if the installation succeed, run 'papp' to run the program. 
    * If not, check your environments and see if it contains the pupil-detection and all of the required packages(listed below). 
@@ -49,3 +49,12 @@ Pupil Detection Program
     When you finished, press 'q' to close the window.
     
 ##### Step 9, click on the 'Start' Button to start the program and n-back task program.
+        On the top menu bar, button 'Prac' for start the practice task,
+        'Start Task' for start the current task and 'Next' is for go the the next task,
+        and 'rest' for start the resting time
+        
+        (The error label only display on the practise stage to help to familiar with the rule, 
+        you can attend as many time as you want)
+        
+        * Remember click the 'Next' button to go to the next task. 
+        
