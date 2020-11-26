@@ -1,9 +1,11 @@
 import tkinter
 import taskProgram
 import client_proxyl
+import multiprocessing as mp
 from multiprocessing import Process
 import os.path as path
 from client import Client
+from sys import platform
 
 global client
 client = Client()
@@ -36,6 +38,12 @@ def run_calib():
     client = client_proxyl.run_standalone(client)
 
 def main():
+    print('The current system is: ', platform)
+    if platform == "win32":
+        pass
+    else:
+        mp.set_start_method('forkserver')
+
     root = tkinter.Tk()
     root.title('Pupil Detector')
     # root.resizable(False, False)

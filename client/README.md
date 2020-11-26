@@ -24,7 +24,7 @@ Pupil Detection Program
 ##### Step 7, if the installation succeed, run 'papp' to run the program. 
    * If not, check your environments and see if it contains the pupil-detection and all of the required packages(listed below). 
    If it does not contains, the installation might not succeed, repeat the previous steps.
-   
+   * To manually install py-opencv, the command is 'conda install opencv-python' or 'pip install opencv-python'.
    ###### The required packages are
         python~=3.7.8
         cmake~=3.18.2

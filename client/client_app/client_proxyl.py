@@ -129,7 +129,8 @@ def pupil_preprocess(image, threshold, iris, show=False, calib=False):
 
     return None
 
-def iris_preprocess(gray, threshold, calib=False, iris_size=None):
+def iris_preprocess(eye, threshold, calib=False, iris_size=None):
+    gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
     blur_iris = cv2.GaussianBlur(gray, (5, 5), 0)
     _, thres = cv2.threshold(blur_iris, threshold, 255, cv2.THRESH_BINARY_INV)
     open = cv2.morphologyEx(thres, cv2.MORPH_OPEN, (7, 7), 2)
@@ -155,7 +156,8 @@ def iris_preprocess(gray, threshold, calib=False, iris_size=None):
 
             if calib:
                 iris = result[0]
-                image = cv2.circle(gray, (int(iris[0]), int(iris[1])), int(iris[2]), (0, 255, 0), 1)
+                image = np.copy(eye)
+                image = cv2.circle(image, (int(iris[0]), int(iris[1])), int(iris[2]), (0, 255, 0), 1)
                 return (image, iris)
 
             return result[0]
@@ -186,11 +188,11 @@ def eye_process(client, eye, side):
     result_set = {}
     dist_set = []
 
-    gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
-    iris = find_iris(side, client, gray)
+    iris = find_iris(side, client, eye)
 
     if iris is None: return None
 
+    gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
     for thres in range(start_thres, end_thres):
         pupil = pupil_preprocess(image=gray, threshold=thres, iris=iris)
         if pupil is not None:
@@ -237,8 +239,7 @@ def calib_iris(side, eye, calib_count):
     result_lst = []
 
     for threshold in range(0, 140):
-        gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
-        result = iris_preprocess(gray, threshold, True)
+        result = iris_preprocess(eye, threshold, True)
 
         if result:
             result_lst.append((threshold, result))
@@ -269,7 +270,7 @@ def calib_iris(side, eye, calib_count):
             cv2.destroyWindow('image')
     return False, calib_count
 
-def find_iris(side, client, gray):
+def find_iris(side, client, eye):
     current_iris = None
     # find iris first
     if side == 0:
@@ -283,7 +284,7 @@ def find_iris(side, client, gray):
 
     result_lst = []
     for threshold in range(start_threshold, end_threshold):
-        result_iris = iris_preprocess(gray, threshold, iris_size=iris_size)
+        result_iris = iris_preprocess(eye, threshold, iris_size=iris_size)
         if result_iris is not None:
             # if result_iris[2]//1 == iris_size//1:
             result_lst.append(result_iris)
@@ -298,7 +299,7 @@ def find_iris(side, client, gray):
 def calib_eye(client, side, eye, calib_count):
     gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
     result_lst = []
-    current_iris = find_iris(side, client, gray)
+    current_iris = find_iris(side, client, eye)
 
     if current_iris is not None:
         for threshold in range(0, 130):
@@ -535,12 +536,15 @@ def run_standalone(client):
                     EYE_AR_THRESH = MAX_EAR * 0.75
                     EAR_UNCHANGED += 1  # make it to 5 so it won't run this line again
                     client.calib_blink = False  # calibration for blink end
-                    messagebox.showinfo('Calibration', 'Blink SET! {}'.format(EYE_AR_THRESH))
+                    messagebox.showinfo('Calibration', 'Blink SET! {} Please then blink 3 times'.format(EYE_AR_THRESH))
                     time.sleep(1)
+
+            if client.blink_count == 3:
+                if calib == 0:
                     calib = 1
                     messagebox.showinfo('Calibration',
-                                        'Please select the image that circled your iris correctly by press \'y\', '
-                                        'otherwise, anyother key.\nWhen you ready, press Any Key')
+                                    'Please select the image that circled your iris correctly by press \'y\', '
+                                    'otherwise, anyother key.\nWhen you ready, press Any Key')
 
             if ear < EYE_AR_THRESH:
                 blink_counter += 1

@@ -10,8 +10,9 @@ global height
 
 data_file = path.join(path.dirname(__file__), 'data.txt')
 control_file = path.join(path.dirname(__file__), 'control.txt')
-root = os.environ['HOMEPATH']
-storing_path = path.join(root, 'CSV')
+# root = os.environ['HOMEPATH']
+# storing_path = path.join(path.dirname(__file__), 'CSV')
+storing_path = os.path.expanduser("~/Desktop/CSV")
 error_file = path.join(storing_path, 'error_list.csv')
 
 tasks = ['0-back', '1-back', '2-back', '3-back']
@@ -99,7 +100,7 @@ class Application(Frame):
                 if (self.back_1 == self.current_letter and ans == 'y') or \
                     (self.back_1 != self.current_letter and ans == 'o'):
                     if self.if_prac:
-                        self.ans_label.config(text='Your Answer is Correct')
+                        self.ans_label.config(fg='black', text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
 
@@ -111,7 +112,7 @@ class Application(Frame):
                 if (self.back_2 == self.current_letter and ans == 'y') or \
                     (self.back_2 != self.current_letter and ans == 'o'):
                     if self.if_prac:
-                        self.ans_label.config(text='Your Answer is Correct')
+                        self.ans_label.config(fg='black', text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
 
@@ -123,13 +124,13 @@ class Application(Frame):
                 if (self.back_3 == self.current_letter and ans == 'y') or \
                     (self.back_3 != self.current_letter and ans == 'o'):
                     if self.if_prac:
-                        self.ans_label.config(text='Your Answer is Correct')
+                        self.ans_label.config(fg='black', text='Your Answer is Correct')
                 else:
                     self.handle_wrong()
 
     def handle_wrong(self):
         if self.if_prac:
-            self.ans_label.config(text='Your Answer is Wrong')
+            self.ans_label.config(fg='black', text='Your Answer is Wrong')
         else:
             self.errors.append(str(time.time()))
 
@@ -197,7 +198,7 @@ class Application(Frame):
 
     def prepare_task(self):
         try:
-            print('root', root)
+            # print('root', root)
             os.mkdir(storing_path)
         except OSError as e:
             print(e)
