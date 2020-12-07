@@ -12,6 +12,14 @@ import numpy as np
 from Task import Task
 from client import Client
 
+class Program_Control:
+    def __init__(self):
+        self.current_calib_pupil = False
+        self.current_calib_iris = True
+        self.calib_count = 10
+        self.calib_stage = 0
+
+
 face_file = path.join(path.dirname(__file__), 'face_landmarks.dat')
 predictor = dlib.shape_predictor(face_file)
 face_detector = dlib.get_frontal_face_detector()
@@ -39,7 +47,6 @@ EYE_AR_CONSEC_FRAMES = 3  # for the number of consecutive frames the eye must be
 
 data_file = path.join(path.dirname(__file__), 'data.txt')
 control_file = path.join(path.dirname(__file__), 'control.txt')
-
 
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
@@ -170,17 +177,17 @@ def sort_results(result):
     return result
 
 
-def eye_process(client, eye, side):
+def eye_process(client, eye, if_left):
     if client is None:
         print('get keypoint: client is None')
         return
 
-    if side == 0: #left
+    if if_left: #left
         iris_size = client.left_iris_size
         start_thres = client.left_pupil_threshold[0] if client.left_pupil_threshold else 0
         end_thres = client.left_pupil_threshold[1] if client.left_pupil_threshold else 130
 
-    if side == 1:
+    else:
         iris_size = client.right_iris_size
         start_thres = client.right_pupil_threshold[0] if client.right_pupil_threshold else 0
         end_thres = client.right_pupil_threshold[1] if client.right_pupil_threshold else 130
@@ -188,11 +195,19 @@ def eye_process(client, eye, side):
     result_set = {}
     dist_set = []
 
-    iris = find_iris(side, client, eye)
-
-    if iris is None: return None
+    iris = find_iris(if_left, client, eye)
 
     gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
+    if iris is None:
+        s = time.time()
+        rows, cols = gray.shape
+        col_values = np.arange(cols)
+        for i in range(cols):
+            for r in range(rows):
+                col_values[i] += gray[r, i]
+        approx_x = np.where(col_values == col_values.min())
+        print(time.time()-s, approx_x)
+
     for thres in range(start_thres, end_thres):
         pupil = pupil_preprocess(image=gray, threshold=thres, iris=iris)
         if pupil is not None:
@@ -219,8 +234,8 @@ def distance(x1, x2, y1, y2):
 
 
 def process_both_eyes(client, left_eye, right_eye):
-    left_optimal = eye_process(client, left_eye, 0)
-    right_optimal = eye_process(client, right_eye, 1)
+    left_optimal = eye_process(client, left_eye, True)
+    right_optimal = eye_process(client, right_eye, False)
     return left_optimal, right_optimal
 
 
@@ -235,7 +250,7 @@ def handle_blink(shape):
     ear = (leftEAR + rightEAR) / 2.0
     return np.around(ear, decimals=2)
 
-def calib_iris(side, eye, calib_count):
+def calib_iris(if_left, eye, calib_count):
     result_lst = []
 
     for threshold in range(0, 140):
@@ -253,14 +268,14 @@ def calib_iris(side, eye, calib_count):
             if calib_count % 5 == 0:
                 messagebox.showinfo('Sample count Left', '{} left'.format(calib_count))
 
-            if side==0:
+            if if_left:
                 pre_iris_data_left.append(i[1])
                 # print(pre_iris_data_left)
                 pre_left_iris_threshold.append(thres)
                 if len(pre_iris_data_left) >= 10:
                     return True, 10
 
-            elif side==1:
+            else:
                 pre_iris_data_right.append(i[1])
                 pre_right_iris_threshold.append(thres)
                 if len(pre_iris_data_right) >= 10:
@@ -270,14 +285,14 @@ def calib_iris(side, eye, calib_count):
             cv2.destroyWindow('image')
     return False, calib_count
 
-def find_iris(side, client, eye):
+def find_iris(if_left, client, eye):
     current_iris = None
     # find iris first
-    if side == 0:
+    if if_left:
         start_threshold = client.left_iris_threshold[0]
         end_threshold = client.left_iris_threshold[1]
         iris_size = client.left_iris_size
-    elif side == 1:
+    else:
         start_threshold = client.right_iris_threshold[0]
         end_threshold = client.right_iris_threshold[1]
         iris_size = client.right_iris_size
@@ -296,10 +311,11 @@ def find_iris(side, client, eye):
     # print('current iris', current_iris)
     return current_iris
 
-def calib_eye(client, side, eye, calib_count):
+
+def calib_eye(client, if_left, eye, calib_count):
     gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
     result_lst = []
-    current_iris = find_iris(side, client, eye)
+    current_iris = find_iris(if_left, client, eye)
 
     if current_iris is not None:
         for threshold in range(0, 130):
@@ -320,12 +336,12 @@ def calib_eye(client, side, eye, calib_count):
             if calib_count % 5 == 0:
                 messagebox.showinfo('Sample count Left', '{} left'.format(calib_count))
 
-            if side==0:
+            if if_left:
                 pre_pupil_data_left.append(i[1])
                 pre_left_pupil_threshold.append(thres)
                 if len(pre_pupil_data_left) >= 10:
                     return True, 10
-            elif side==1:
+            else:
                 pre_pupil_data_right.append(i[1])
                 pre_right_pupil_threshold.append(thres)
                 if len(pre_pupil_data_right) >= 10:
@@ -381,6 +397,16 @@ def update_data(client, left_result, right_result):
 
     return client
 
+def get_eyes(frame, shape):
+    left_eye = extract_eye(frame, shape, lStart, lEnd)
+    right_eye = extract_eye(frame, shape, rStart, rEnd)
+    return left_eye, right_eye
+
+def get_frame(cap):
+    _, frame = cap.read()
+    frame = imutils.resize(frame, width=1000, height=1000)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return frame, gray
 
 ##################### main program #########################
 def run(client=None):
@@ -410,15 +436,14 @@ def run(client=None):
             last_t = time.time()
             # print(last_t - client.current_time)
             run = read_control()
-
-            _, frame = cap.read()
-            frame = imutils.resize(frame, width=1000, height=1000)
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            #get frame
+            frame, gray = get_frame(cap)
 
             # detect face
             rects = face_detector(gray, 0)
             # print('get face')
             for rect in rects:
+
                 # detect sense organs
                 shape = predictor(gray, rect)
                 shape = face_utils.shape_to_np(shape)
@@ -440,8 +465,7 @@ def run(client=None):
 
                 # print('eye')
                 # get eyes
-                left_eye = extract_eye(frame, shape, lStart, lEnd)
-                right_eye = extract_eye(frame, shape, rStart, rEnd)
+                left_eye, right_eye = get_eyes(frame, shape)
 
                 # detect pupil size
                 left_result, right_result = process_both_eyes(client, left_eye, right_eye)
@@ -491,7 +515,45 @@ def run(client=None):
     cv2.destroyAllWindows()
 
 
+def eye_calibration_stage(frame, shape, pc, client):
+    if pc.calib_stage == 1:
+        eye = extract_eye(frame, shape, lStart, lEnd)
+        if_left = True
+    elif pc.calib_stage == 2:
+        if_left=False
+        eye = extract_eye(frame, shape, rStart, rEnd)
+    else:
+        return pc, client
+
+    if pc.current_calib_iris:
+        done, pc.calib_count = calib_iris(if_left=if_left, eye=eye, calib_count=pc.calib_count)
+        if done:
+            client.set_iris_fitering(pre_iris_data_left, pre_left_iris_threshold, if_left=if_left)
+            messagebox.showinfo('Calibration', 'Next, please select the image that circled your pupil correctly')
+            pc.current_calib_iris = False
+            pc.current_calib_pupil = True
+
+    elif pc.current_calib_pupil:
+        done, pc.calib_count = calib_eye(client, if_left=if_left, eye=eye, calib_count=pc.calib_count)
+        if done:
+            if pc.calib_stage == 2:
+                client.set_pupil_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right,
+                                                           left_threshold=pre_left_pupil_threshold,
+                                                           right_threshold=pre_right_pupil_threshold)
+                messagebox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
+            else:
+                messagebox.showinfo('Calibration', 'Left eye done!')
+                pc.current_calib_iris = True
+                pc.current_calib_pupil = False
+
+            pc.calib_stage += 1
+
+    return pc, client
+
+
 def run_standalone(client):
+    pc = Program_Control()
+
     root = Tk()
     root.withdraw()
 
@@ -499,20 +561,13 @@ def run_standalone(client):
 
     cap = cv2.VideoCapture(0)
     client.start_time = time.time()
-    blink_counter = 0
 
+    blink_counter = 0
     MAX_EAR = 0
     EAR_UNCHANGED = 0
 
-    calib = 0
-    calib_count = 10
-    current_calib_iris = True
-    current_calib_pupil = False
-
     while True:
-        _, frame = cap.read()
-        frame = imutils.resize(frame, width=1000, height=1000)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frame, gray = get_frame(cap)
 
         # detect face
         rects = face_detector(gray, 0)
@@ -523,7 +578,7 @@ def run_standalone(client):
 
             # detect blink
             ear = handle_blink(shape)
-            if calib == 0:
+            if pc.calib_stage == 0:
                 if EAR_UNCHANGED < 2:
                     MAX_EAR = max(MAX_EAR, ear)
                     if (ear // 0.001) == (MAX_EAR // 0.001):
@@ -540,8 +595,8 @@ def run_standalone(client):
                     time.sleep(1)
 
             if client.blink_count == 3:
-                if calib == 0:
-                    calib = 1
+                if pc.calib_stage == 0:
+                    pc.calib_stage = 1
                     messagebox.showinfo('Calibration',
                                     'Please select the image that circled your iris correctly by press \'y\', '
                                     'otherwise, anyother key.\nWhen you ready, press Any Key')
@@ -558,48 +613,12 @@ def run_standalone(client):
                 # reset the eye frame counter
                 blink_counter = 0
 
-            if calib == 1: #calib for iris first
-                left_eye = extract_eye(frame, shape, lStart, lEnd)
-                if current_calib_iris:
-                    done, calib_count = calib_iris(side=0, eye=left_eye, calib_count=calib_count)
-                    if done:
-                        client.set_iris_fitering(pre_iris_data_left, pre_left_iris_threshold, if_left=True)
-                        messagebox.showinfo('Calibration', 'Next, please select the image that circled your pupil correctly')
-                        current_calib_iris = False
-                        current_calib_pupil = True
-
-                elif current_calib_pupil:
-                    done, calib_count = calib_eye(client, side=0, eye=left_eye, calib_count=calib_count)
-                    if done:
-                        messagebox.showinfo('Calibration', 'Left eye done!')
-                        calib = 2
-                        current_calib_iris = True
-                        current_calib_pupil = False
-
-            elif calib == 2:
-                right_eye = extract_eye(frame, shape, rStart, rEnd)
-                if current_calib_iris:
-                    done, calib_count = calib_iris(side=1, eye=right_eye, calib_count=calib_count)
-                    if done:
-                        client.set_iris_fitering(pre_iris_data_right, pre_right_iris_threshold, if_left=False)
-                        # print('filtering', client.right_iris_threshold, client.right_iris_size)
-                        messagebox.showinfo('Calibration', 'Next, please select the image that circled your pupil correctly')
-                        current_calib_iris = False
-                        current_calib_pupil = True
-
-                elif current_calib_pupil:
-                    done, calib_count = calib_eye(client, side=1, eye=right_eye, calib_count=calib_count)
-                    if done:
-                        calib = 3  # finish eye calibration
-                        client.set_pupil_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right,
-                                             left_threshold=pre_left_pupil_threshold, right_threshold=pre_right_pupil_threshold)
-                        messagebox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
+            pc, client = eye_calibration_stage(frame, shape, pc, client)
 
             # calibration finish
-            if calib == 3:
+            if pc.calib_stage == 3:
                 # detect pupil size
-                left_eye = extract_eye(frame, shape, lStart, lEnd)
-                right_eye = extract_eye(frame, shape, rStart, rEnd)
+                left_eye, right_eye = get_eyes(frame, shape)
 
                 # detect pupil size
                 left_result, right_result = process_both_eyes(client, left_eye, right_eye)
@@ -611,8 +630,8 @@ def run_standalone(client):
             show_text(client, frame, ear, time.time())
 
         cv2.imshow('Frame', frame)
-        key = cv2.waitKey(1) & 0xFF
 
+        key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
 
@@ -621,17 +640,3 @@ def run_standalone(client):
     client.reset_start_time()
     client.reset_data()
     return client
-
-
-if __name__ == '__main__':
-    my_parser = argparse.ArgumentParser(description='run method')
-    my_parser.add_argument('--method',
-                           help='run/standalone')
-    my_parser.add_argument('--host',
-                           help='host address to connect')
-
-    args = my_parser.parse_args()
-    if args.method == 'standalone':
-        run_standalone()
-    elif args.method == 'run':
-        run()
