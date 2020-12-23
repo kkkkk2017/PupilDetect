@@ -176,55 +176,89 @@ def sort_results(result):
     result = sorted(result, key=lambda x: x[2], reverse=True)
     return result
 
+def get_radius(depth, center):
+    center = int(center)
+    pnt = []
+
+    # print('center', center)
+    for i, v in enumerate(reversed(depth[:center])):
+        # print(center - i - 1, v)
+        if v == 0:
+            pnt.append(center - i - 1)
+            break
+
+    for i, v in enumerate(depth[center + 1:]):
+        # print(i + center + 1, v)
+        if v == 0:
+            pnt.append(i + center + 1)
+            break
+    if len(pnt) < 2:
+        return None
+
+    return (pnt[-1] - pnt[0])/2
+
+
+def show_histogram(gray, step, x=None):
+    # print('\n[STEP]', step)
+    rows = []
+    cols = []
+
+    r, c = gray.shape
+    # [0-100]
+    for a in range(10, c-5):
+        sum = 0
+        for b in range(r):
+            sum += gray[b][a]
+        cols.append(sum/c)
+
+    for v in gray:
+        rows.append(np.sum(v / r))
+    rows = rows[1:-2]
+
+    if step == 0:
+        min_x = np.where(cols == min(cols))
+        min_x = min_x[0].mean()
+
+        return min_x, min(cols)+20
+
+    elif step == 1:
+        min_y = np.where(rows == max(rows))
+        min_y = min_y[0].mean()
+
+        r = get_radius(cols, x)
+
+        return x+10, min_y+1, r
+
+
+def convert_gray(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
+    gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, (5, 5))
+    gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, (5, 5))
+    return gray
+
+def get_binary(gray, t, side=None, time=None):
+    _, thres = cv2.threshold(gray, t, 255, cv2.THRESH_BINARY_INV)
+    open = cv2.erode(thres, np.ones((2, 2), np.uint8), 2)
+    # open = cv2.morphologyEx(thres, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), 1)
+    # close = cv2.morphologyEx(open, cv2.MORPH_CLOSE, (5, 5), 3)
+    blur = cv2.medianBlur(open, 7)
+    # blur = cv2.fastNlMeansDenoising(blur, blur, h=10)
+    # cv2.imwrite(stroing_path + time + side + '_combo.jpg', np.hstack([thres, open, blur]))
+    return blur
 
 def eye_process(client, eye, if_left):
     if client is None:
         print('get keypoint: client is None')
         return
 
-    if if_left: #left
-        iris_size = client.left_iris_size
-        start_thres = client.left_pupil_threshold[0] if client.left_pupil_threshold else 0
-        end_thres = client.left_pupil_threshold[1] if client.left_pupil_threshold else 130
+    gray = convert_gray(eye)
 
-    else:
-        iris_size = client.right_iris_size
-        start_thres = client.right_pupil_threshold[0] if client.right_pupil_threshold else 0
-        end_thres = client.right_pupil_threshold[1] if client.right_pupil_threshold else 130
+    x, t = show_histogram(gray, 0, None, None)
+    blur = get_binary(gray, t, 'left')
+    x, y, r = show_histogram(blur, 1, x)
 
-    result_set = {}
-    dist_set = []
-
-    iris = find_iris(if_left, client, eye)
-
-    gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
-    if iris is None:
-        s = time.time()
-        rows, cols = gray.shape
-        col_values = np.arange(cols)
-        for i in range(cols):
-            for r in range(rows):
-                col_values[i] += gray[r, i]
-        approx_x = np.where(col_values == col_values.min())
-        print(time.time()-s, approx_x)
-
-    for thres in range(start_thres, end_thres):
-        pupil = pupil_preprocess(image=gray, threshold=thres, iris=iris)
-        if pupil is not None:
-            result_set.update({thres: (iris, pupil)})
-            value_i = np.abs(iris[2] - iris_size)
-            value_p = distance(pupil[0], iris[0], pupil[1], iris[1]) #the distance between iris center and pupil center
-            dist_set.append((thres, value_i, value_p))
-
-    if len(dist_set) != 0:
-        # print(dist_set)
-        dist_set = sorted(dist_set, key=lambda x: (x[1], x[2]))  # sort by iris first
-        # print(dist_set)
-        result = result_set.get(dist_set[0][0])
-        # print('result=', result)
-        return result[0], result[1]  # only return the coordinate and size
-
-    return None
+    return (x, y), r
 
 
 def distance(x1, x2, y1, y2):
@@ -469,8 +503,7 @@ def run(client=None):
 
                 # detect pupil size
                 left_result, right_result = process_both_eyes(client, left_eye, right_eye)
-                # print(left_result, right_result)
-                # print(left_size, right_size)
+
                 # update time
                 client.current_time = time.time()
                 client = update_data(client, left_result, right_result)
@@ -485,10 +518,6 @@ def run(client=None):
                                  left_pupil_y=client.current_left_pupil_y,
                                  right_pupil=client.current_right_pupil, right_pupil_x=client.current_right_pupil_x,
                                  right_pupil_y=client.current_right_pupil_y,
-                                 left_iris=client.current_left_iris, left_iris_x=client.current_left_iris_x,
-                                 left_iris_y=client.current_left_iris_y,
-                                 right_iris=client.current_right_iris, right_iris_x=client.current_right_iris_x,
-                                 right_iris_y=client.current_right_iris_y,
                                  blink_count=client.blink_count)
                         store_data(t)
                         client.reset_data()
@@ -502,10 +531,6 @@ def run(client=None):
                                      left_pupil_y=client.current_left_pupil_y,
                                      right_pupil=client.current_right_pupil, right_pupil_x=client.current_right_pupil_x,
                                      right_pupil_y=client.current_right_pupil_y,
-                                     left_iris=client.current_left_iris, left_iris_x=client.current_left_iris_x,
-                                     left_iris_y=client.current_left_iris_y,
-                                     right_iris=client.current_right_iris, right_iris_x=client.current_right_iris_x,
-                                     right_iris_y=client.current_right_iris_y,
                                      blink_count=np.nan)
                             store_data(t)
                             client.reset_data()
