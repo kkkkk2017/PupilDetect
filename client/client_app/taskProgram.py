@@ -243,10 +243,8 @@ class Application(Frame):
         with open(filename, 'w') as f:
             writer = csv.writer(f)
             if data:
-                writer.writerow(['time', 'left_pupil', 'left_pupil_x', 'left_pupil_y',
-                                 'right_pupil', 'right_pupil_x', 'right_pupil_y',
-                                 'left_iris', 'left_iris_x', 'left_iris_y',
-                                 'right_iris', 'right_iris_x', 'right_iris_y', 'blink_count'])
+                writer.writerow(['time', 'left_pupil_r', 'left_pupil_x', 'left_pupil_y',
+                                 'right_pupil_r', 'right_pupil_x', 'right_pupil_y', 'blink_count'])
                 for t in data:
                     writer.writerow(t[:-1])
                 print('[CSV] DONE!' + f.name)

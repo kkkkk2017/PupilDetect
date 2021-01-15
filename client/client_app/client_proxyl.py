@@ -3,11 +3,11 @@ import imutils
 import cv2
 import time
 import dlib
-import argparse
 import os.path as path
 from tkinter import *
 from tkinter import messagebox
 from scipy.spatial import distance as dist
+from scipy import signal
 import numpy as np
 from Task import Task
 from client import Client
@@ -16,7 +16,7 @@ class Program_Control:
     def __init__(self):
         self.current_calib_pupil = False
         self.current_calib_iris = True
-        self.calib_count = 10
+        self.calib_count = 6
         self.calib_stage = 0
 
 
@@ -39,196 +39,20 @@ EYE_AR_CONSEC_FRAMES = 3  # for the number of consecutive frames the eye must be
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
-# detector_params = cv2.SimpleBlobDetector_Params()
-# detector_params.filterByArea = True
-# detector_params.minArea = 45
-# detector_params.maxArea = 200
-# blob_detector = cv2.SimpleBlobDetector_create(detector_params)
-
 data_file = path.join(path.dirname(__file__), 'data.txt')
 control_file = path.join(path.dirname(__file__), 'control.txt')
+
+# ---------------------- get eye methods ----------------------------- #
+def get_eyes(frame, shape):
+    left_eye = extract_eye(frame, shape, lStart, lEnd)
+    right_eye = extract_eye(frame, shape, rStart, rEnd)
+    return left_eye, right_eye
 
 def extract_eye(frame, shape, start, end):
     (x, y, w, h) = cv2.boundingRect(np.array([shape[start:end]]))
     roi = frame[y:(y + h), x:(x + w)]
     roi = imutils.resize(roi, width=100, height=75, inter=cv2.INTER_CUBIC)
     return roi
-
-
-def eye_aspect_ratio(eye):
-    A = dist.euclidean(eye[1], eye[5])  # vertical
-    B = dist.euclidean(eye[2], eye[4])
-
-    C = dist.euclidean(eye[0], eye[3])  # horizontal
-    ear = (A + B) / (2.0 * C)
-    return ear
-
-
-def show_text(client, frame, ear, time):
-    cv2.putText(frame, "Blinks: {}".format(client.blink_count), (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
-    cv2.putText(frame, "EAR:{:.2f}".format(ear), (10, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
-
-    cv2.putText(frame, 'Left Pupil: {:.5f}'.format(client.current_left_pupil), (650, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
-    cv2.putText(frame, 'Right Pupil: {:.5f}'.format(client.current_right_pupil), (650, 60),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
-
-    cv2.putText(frame, 'Time {:2f}'.format(time - client.start_time), (10, 650),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
-
-
-###################### main detection ######################
-def pupil_preprocess(image, threshold, iris, show=False, calib=False):
-    hist = cv2.equalizeHist(image)
-    open = cv2.morphologyEx(hist, cv2.MORPH_OPEN, (5, 5))
-    close = cv2.morphologyEx(open, cv2.MORPH_CLOSE, (5, 5))
-    gaublur = cv2.GaussianBlur(close, (5, 5), 1)
-    _, thres = cv2.threshold(gaublur, threshold, 255, cv2.THRESH_BINARY)
-    blur = cv2.medianBlur(thres, 5)
-    # use findcontours
-    contours, _ = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    if show:
-        hstack = np.hstack((hist, open, close))
-        cv2.imshow('pupil', hstack)
-
-    if contours is not None:
-        # cv2.drawContours(image, contours, 0, (0, 255, 0), 1)
-        closest = None
-        closet_d = None
-
-        for i in contours:
-            (x, y), radius = cv2.minEnclosingCircle(i)
-
-            # calibration uses integer for drawing circle
-            if calib:
-                x = int(x)
-                y = int(y)
-                radius = int(radius)
-
-            # if raduis > iris radius, then it is not
-            if radius >= iris[2]: continue
-
-            ratio = radius / iris[2]
-            # check pupil/iris ratio
-            if ratio <= 0.2 or ratio >= 0.60: continue
-
-            dist_x = np.abs(iris[0] - x)
-            dist_y = np.abs(iris[1] - y)
-
-            if (np.abs(dist_x) > 2) or np.abs(dist_y) > 2: continue
-
-            d = np.sqrt(np.square(dist_x) + np.square(dist_y))
-            # print('distance: ', d)
-
-            if d > 10: continue
-
-            if closet_d is None:
-                closet_d = d
-                closest = (x, y, radius)
-            else:
-                if d < closet_d:
-                    closest = (x, y, radius)
-
-        return closest
-
-    return None
-
-def iris_preprocess(eye, threshold, calib=False, iris_size=None):
-    gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
-    blur_iris = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, thres = cv2.threshold(blur_iris, threshold, 255, cv2.THRESH_BINARY_INV)
-    open = cv2.morphologyEx(thres, cv2.MORPH_OPEN, (7, 7), 2)
-    close = cv2.morphologyEx(open, cv2.MORPH_CLOSE, (7, 7), 2)
-    blur = cv2.medianBlur(close, 5)
-    contours, _ = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    if contours is not None:
-        result = []
-        for index, i in enumerate(contours):
-            (x, y), radius = cv2.minEnclosingCircle(i)
-            if calib:
-                if radius < 20 or radius > 30:
-                    continue
-            else:
-                if radius < (iris_size - 0.5) or radius > (iris_size + 0.5):
-                    continue
-
-            result.append((x, y, radius))
-
-        if len(result) > 0:
-            result = sorted(result, key=lambda x: x[2])
-
-            if calib:
-                iris = result[0]
-                image = np.copy(eye)
-                image = cv2.circle(image, (int(iris[0]), int(iris[1])), int(iris[2]), (0, 255, 0), 1)
-                return (image, iris)
-
-            return result[0]
-
-    return None
-
-
-def sort_results(result):
-    result = sorted(result, key=lambda x: x[2], reverse=True)
-    return result
-
-def get_radius(depth, center):
-    center = int(center)
-    pnt = []
-
-    # print('center', center)
-    for i, v in enumerate(reversed(depth[:center])):
-        # print(center - i - 1, v)
-        if v == 0:
-            pnt.append(center - i - 1)
-            break
-
-    for i, v in enumerate(depth[center + 1:]):
-        # print(i + center + 1, v)
-        if v == 0:
-            pnt.append(i + center + 1)
-            break
-    if len(pnt) < 2:
-        return None
-
-    return (pnt[-1] - pnt[0])/2
-
-
-def show_histogram(gray, step, x=None):
-    # print('\n[STEP]', step)
-    rows = []
-    cols = []
-
-    r, c = gray.shape
-    # [0-100]
-    for a in range(10, c-5):
-        sum = 0
-        for b in range(r):
-            sum += gray[b][a]
-        cols.append(sum/c)
-
-    for v in gray:
-        rows.append(np.sum(v / r))
-    rows = rows[1:-2]
-
-    if step == 0:
-        min_x = np.where(cols == min(cols))
-        min_x = min_x[0].mean()
-
-        return min_x, min(cols)+20
-
-    elif step == 1:
-        min_y = np.where(rows == max(rows))
-        min_y = min_y[0].mean()
-
-        r = get_radius(cols, x)
-
-        return x+10, min_y+1, r
-
 
 def convert_gray(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -237,40 +61,178 @@ def convert_gray(image):
     gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, (5, 5))
     return gray
 
-def get_binary(gray, t, side=None, time=None):
+
+def get_binary(gray, t):
     _, thres = cv2.threshold(gray, t, 255, cv2.THRESH_BINARY_INV)
-    open = cv2.erode(thres, np.ones((2, 2), np.uint8), 2)
-    # open = cv2.morphologyEx(thres, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), 1)
-    # close = cv2.morphologyEx(open, cv2.MORPH_CLOSE, (5, 5), 3)
-    blur = cv2.medianBlur(open, 7)
-    # blur = cv2.fastNlMeansDenoising(blur, blur, h=10)
-    # cv2.imwrite(stroing_path + time + side + '_combo.jpg', np.hstack([thres, open, blur]))
+    open = cv2.morphologyEx(thres, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), 1)
+    blur = cv2.medianBlur(open, 3)
     return blur
 
-def eye_process(client, eye, if_left):
-    if client is None:
-        print('get keypoint: client is None')
-        return
 
-    gray = convert_gray(eye)
+def eye_aspect_ratio(eye):
+    A = dist.euclidean(eye[1], eye[5])  # vertical
+    B = dist.euclidean(eye[2], eye[4])
+    C = dist.euclidean(eye[0], eye[3])  # horizontal
+    ear = (A + B) / (2.0 * C)
+    return ear
 
-    x, t = show_histogram(gray, 0, None, None)
-    blur = get_binary(gray, t, 'left')
-    x, y, r = show_histogram(blur, 1, x)
-
-    return (x, y), r
-
-
-def distance(x1, x2, y1, y2):
-    result = np.square((x2 - x1)) + np.square((y2 - y1))
-    result = np.sqrt(result)
-    return result
+# -------------------- utility methods --------------------- #
+def get_frame(cap):
+    _, frame = cap.read()
+    frame = imutils.resize(frame, width=1000, height=1000)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return frame, gray
 
 
-def process_both_eyes(client, left_eye, right_eye):
-    left_optimal = eye_process(client, left_eye, True)
-    right_optimal = eye_process(client, right_eye, False)
-    return left_optimal, right_optimal
+def show_text(client, frame, ear, time):
+    cv2.putText(frame, "Blinks: {}".format(client.blink_count), (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+    cv2.putText(frame, "EAR:{:.2f}".format(ear), (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+
+    cv2.putText(frame, 'Left Pupil: {:.5f}'.format(client.current_left_pupil_r), (650, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+    cv2.putText(frame, 'Right Pupil: {:.5f}'.format(client.current_right_pupil_r), (650, 60),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+
+    cv2.putText(frame, 'Time {:2f}'.format(time - client.start_time), (10, 650),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
+
+
+#--------------------- main detection algorithm -------------------------- #
+def get_peak(half_ary, reverse=False):
+    if len(half_ary) == 0:
+        print('ary is empty, [ERROR]')
+        return 0
+
+    peak_value = max(half_ary)
+    peak = np.where(half_ary == peak_value)[0]
+    if reverse:
+        return peak[-1]
+    else:
+        return peak[0]
+
+
+# step 0: detect the approximate x, y and threshold
+# step 1: detect the quality of the blur image, adjust the most likely radius
+def show_histogram(gray, step, area_x=None, area_y=None, area_r=None, compare_pupil=None):
+    rows = []
+    cols = []
+
+    r, c = gray.shape
+    # [0-100]
+    for a in range(c):
+        sum = 0
+        for b in range(r):
+            sum += gray[b][a]
+        cols.append(sum/c)
+
+    for v in gray:
+        rows.append(np.sum(v)/r)
+
+    cols = cols[10:-10]
+    rows = rows[5:-5]
+
+    try:
+        gradient_row = np.gradient(rows)
+        gradient_col = np.gradient(cols)
+
+        gradient_col_2 = np.gradient(gradient_col)
+        gradient_row_2 = np.gradient(gradient_row)
+
+    except:
+        return (None, None),  None
+
+    x = np.where(cols == min(cols))
+    x = int(x[0].mean())
+    y = np.where(gradient_row_2 == max(gradient_row_2))
+    y = int(y[0].mean())
+
+    if step == 0:
+        return (x, y), min(cols)+15
+
+    elif step == 1:
+
+        if area_x is not None and area_y is not None and area_r is not None:
+            print(area_x, area_y, len(gradient_col_2), len(gradient_row_2))
+            peaks_col = [get_peak(gradient_col_2[:area_x], reverse=True),  get_peak(gradient_col_2[area_x:])+area_x]
+            peaks_row = [get_peak(gradient_row_2[:area_y], reverse=True),  get_peak(gradient_row_2[area_y:])+area_y]
+            print('peaks_col', peaks_col, 'peaks_row', peaks_row)
+
+            col_r = abs(peaks_col[1] - peaks_col[0])
+            row_r = abs(peaks_row[1] - peaks_row[0])
+
+            # if abs(row_r - col_r) >= 2:
+            if col_r <= 5 and row_r <= 5: return True, None, (None, None)
+
+            elif col_r <= 5 and row_r > 5:
+                return False, row_r/2, (None, None)
+            elif row_r <= 5 and col_r > 5:
+                return False, col_r/2, (
+                    ((peaks_col[1] + peaks_col[0])/2)+10, ((peaks_row[1]+peaks_row[0])/2)+5 )
+
+            if compare_pupil is None:
+                return False, min(row_r, col_r)/2, (
+                    ((peaks_col[1] + peaks_col[0])/2)+10, ((peaks_row[1]+peaks_row[0])/2)+5 )
+
+            (comp_x, comp_y), comp_r = compare_pupil
+            d1 = np.sqrt( np.square(x - comp_x) + np.square(y - comp_y))
+            d2 = np.sqrt( np.square(x - comp_x) + np.square(y - comp_y))
+
+            if d1 <= d2:
+                return False, row_r/2, (None, None)
+
+            return False, col_r/2, (None, None)
+        return True, None, (None, None)
+    return None, None, (None, None)
+
+def filt_results(cnts):
+    cnts = [cv2.minEnclosingCircle(i) for i in cnts]     #(x, y), r
+    results = []
+    for cnt in cnts:
+        if cnt[2] >= 20:
+            continue
+        else:
+            results.append(cnt)
+
+    if len(results) == 0:
+        return None
+
+    results = sorted(results, key=lambda x: x[-1], reverse=True)
+    return results[0]
+
+def procedure(eye_image, compare_pupil):
+    gray = convert_gray(eye_image) # gray image
+    (x, y), t = show_histogram(gray, 0) # get x, y and threshold from the gray image
+    if t is None: return None, None
+
+    blur = get_binary(gray, t) # get the binary image
+    # circles = find_circle(blur) # circle detections
+
+    cnts, _ = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    result = filt_results(cnts)
+
+    if result is None: return None, None
+    (x, y), r = result
+    print('----[CNT RESULTS]', x, y, r)
+
+    if_valid, adjust_r, (adjust_x, adjust_y) = show_histogram(blur, 1, int(x//1), int(y//1), r, compare_pupil)
+
+    if not if_valid:
+        if adjust_x is not None:
+            if x == adjust_x:
+                print('*** adjutst x and contour x are the same, no need to adjust **')
+                pass
+            x = adjust_x
+            y = np.mean((adjust_y, y))
+            y = int(y)
+        r = adjust_r
+
+        print('*[HIST ADJUST] adjust radius =', r, 'adjust x = ', x)
+
+    print('-------- [FINAL RESULT]', x, y, r, '\n')
+    result = ((x, y), r)
+    return gray, result, t
 
 
 ################### calibration ############################
@@ -284,102 +246,34 @@ def handle_blink(shape):
     ear = (leftEAR + rightEAR) / 2.0
     return np.around(ear, decimals=2)
 
-def calib_iris(if_left, eye, calib_count):
-    result_lst = []
-
-    for threshold in range(0, 140):
-        result = iris_preprocess(eye, threshold, True)
-
-        if result:
-            result_lst.append((threshold, result))
-
-    for (thres, i) in result_lst:
-        cv2.imshow('image', i[0])
-
-        if cv2.waitKey(20000) & 0xFF == ord('y'):
-            cv2.destroyWindow('image')
-            calib_count -= 1
-            if calib_count % 5 == 0:
-                messagebox.showinfo('Sample count Left', '{} left'.format(calib_count))
-
-            if if_left:
-                pre_iris_data_left.append(i[1])
-                # print(pre_iris_data_left)
-                pre_left_iris_threshold.append(thres)
-                if len(pre_iris_data_left) >= 10:
-                    return True, 10
-
-            else:
-                pre_iris_data_right.append(i[1])
-                pre_right_iris_threshold.append(thres)
-                if len(pre_iris_data_right) >= 10:
-                    return True, 10
-
-        else:
-            cv2.destroyWindow('image')
-    return False, calib_count
-
-def find_iris(if_left, client, eye):
-    current_iris = None
-    # find iris first
-    if if_left:
-        start_threshold = client.left_iris_threshold[0]
-        end_threshold = client.left_iris_threshold[1]
-        iris_size = client.left_iris_size
-    else:
-        start_threshold = client.right_iris_threshold[0]
-        end_threshold = client.right_iris_threshold[1]
-        iris_size = client.right_iris_size
-
-    result_lst = []
-    for threshold in range(start_threshold, end_threshold):
-        result_iris = iris_preprocess(eye, threshold, iris_size=iris_size)
-        if result_iris is not None:
-            # if result_iris[2]//1 == iris_size//1:
-            result_lst.append(result_iris)
-
-    if len(result_lst) > 0:
-        result_lst = sorted(result_lst, key=lambda x: abs(x[2] - iris_size))
-        # print('iris result list', result_lst)
-        current_iris = result_lst[0]
-    # print('current iris', current_iris)
-    return current_iris
-
 
 def calib_eye(client, if_left, eye, calib_count):
-    gray = cv2.cvtColor(eye, cv2.COLOR_BGR2GRAY)
-    result_lst = []
-    current_iris = find_iris(if_left, client, eye)
+    if if_left:
+        gray, pupil, _ = procedure(eye, client.prev_left_pupil)
+    else:
+        gray, pupil, _ = procedure(eye, client.prev_right_pupil)
 
-    if current_iris is not None:
-        for threshold in range(0, 130):
-            pupil = pupil_preprocess(image=gray, iris=current_iris, threshold=threshold, show=True, calib=True)
-            if pupil is not None:
-                image = np.copy(eye)
-                image = cv2.circle(image, (int(current_iris[0]), int(current_iris[1])), int(current_iris[2]), (0, 0, 255), 1)
-                # print('pupil', pupil)
-                image = cv2.circle(image, (pupil[0], pupil[1]), pupil[2], (0, 0, 255), 1)
-                result_lst.append((threshold, (image, pupil)))
+    print('detection result', pupil)
 
-    for (thres, i) in result_lst:
-        cv2.imshow('image', i[0])
+    if pupil is not None:
+        (x,y), r = pupil
+        image = cv2.circle(gray, (int(x), int(y)), int(r), (255, 255, 255), 1)
+        cv2.imshow('image', image)
 
         if cv2.waitKey(20000) & 0xFF == ord('y'):
             cv2.destroyWindow('image')
             calib_count -= 1
-            if calib_count % 5 == 0:
+            if calib_count % 3 == 0:
                 messagebox.showinfo('Sample count Left', '{} left'.format(calib_count))
 
             if if_left:
-                pre_pupil_data_left.append(i[1])
-                pre_left_pupil_threshold.append(thres)
-                if len(pre_pupil_data_left) >= 10:
-                    return True, 10
+                pre_pupil_data_left.append(pupil)
+                if calib_count == 0:
+                    return True, 6
             else:
-                pre_pupil_data_right.append(i[1])
-                pre_right_pupil_threshold.append(thres)
-                if len(pre_pupil_data_right) >= 10:
-                    return True, 10
+                pre_pupil_data_right.append(pupil)
+                if calib_count == 0:
+                    return True, 6
         else:
             cv2.destroyWindow('image')
 
@@ -403,44 +297,20 @@ def store_data(task):
 
 
 def update_data(client, left_result, right_result):
-    # print(left_result, right_result)
-
     if left_result is not None:
-        left_iris, left_pupil = left_result
-        # print('left_iris',left_iris)
-        # print('left_pupil', left_pupil)
-        # print(left_size, right_size, 'data updated!!')
-        client.current_left_iris_x = left_iris[0]
-        client.current_left_iris_y = left_iris[1]
-        client.current_left_iris = left_iris[2]
-
-        client.current_left_pupil_x = left_pupil[0]
-        client.current_left_pupil_y = left_pupil[1]
-        client.current_left_pupil = left_pupil[2]
+        (x, y), r = left_result
+        client.current_left_pupil_x = x
+        client.current_left_pupil_y = y
+        client.current_left_pupil_r = r
 
     if right_result is not None:
-        right_iris, right_pupil = right_result
-
-        client.current_right_iris_x = right_iris[0]
-        client.current_right_iris_y = right_iris[1]
-        client.current_right_iris = right_iris[2]
-
-        client.current_right_pupil_x = right_pupil[0]
-        client.current_right_pupil_y = right_pupil[1]
-        client.current_right_pupil = right_pupil[2]
+        (x, y), r = right_result
+        client.current_right_pupil_x = x
+        client.current_right_pupil_y = y
+        client.current_right_pupil_r = r
 
     return client
 
-def get_eyes(frame, shape):
-    left_eye = extract_eye(frame, shape, lStart, lEnd)
-    right_eye = extract_eye(frame, shape, rStart, rEnd)
-    return left_eye, right_eye
-
-def get_frame(cap):
-    _, frame = cap.read()
-    frame = imutils.resize(frame, width=1000, height=1000)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return frame, gray
 
 ##################### main program #########################
 def run(client=None):
@@ -502,7 +372,8 @@ def run(client=None):
                 left_eye, right_eye = get_eyes(frame, shape)
 
                 # detect pupil size
-                left_result, right_result = process_both_eyes(client, left_eye, right_eye)
+                _, left_result, _ = procedure(left_eye, compare_pupil=None)
+                _, right_result, _ = procedure(right_eye, compare_pupil=None)
 
                 # update time
                 client.current_time = time.time()
@@ -514,9 +385,9 @@ def run(client=None):
                 if run == 'a':
                     if client.current_time - blink_t >= 10:
                         t = Task(time=client.current_time,
-                                 left_pupil=client.current_left_pupil, left_pupil_x=client.current_left_pupil_x,
+                                 left_pupil=client.current_left_pupil_r, left_pupil_x=client.current_left_pupil_x,
                                  left_pupil_y=client.current_left_pupil_y,
-                                 right_pupil=client.current_right_pupil, right_pupil_x=client.current_right_pupil_x,
+                                 right_pupil=client.current_right_pupil_r, right_pupil_x=client.current_right_pupil_x,
                                  right_pupil_y=client.current_right_pupil_y,
                                  blink_count=client.blink_count)
                         store_data(t)
@@ -525,11 +396,11 @@ def run(client=None):
                         task_t = time.time()
                     else:
                         # elif client.current_time - task_t >= 0.001:
-                        if not (client.current_left_pupil == 0 and client.current_right_pupil == 0):
+                        if not (client.current_left_pupil_r == 0 and client.current_right_pupil_r == 0):
                             t = Task(time=client.current_time,
-                                     left_pupil=client.current_left_pupil, left_pupil_x=client.current_left_pupil_x,
+                                     left_pupil_r=client.current_left_pupil_r, left_pupil_x=client.current_left_pupil_x,
                                      left_pupil_y=client.current_left_pupil_y,
-                                     right_pupil=client.current_right_pupil, right_pupil_x=client.current_right_pupil_x,
+                                     right_pupil_r=client.current_right_pupil_r, right_pupil_x=client.current_right_pupil_x,
                                      right_pupil_y=client.current_right_pupil_y,
                                      blink_count=np.nan)
                             store_data(t)
@@ -550,46 +421,34 @@ def eye_calibration_stage(frame, shape, pc, client):
     else:
         return pc, client
 
-    if pc.current_calib_iris:
-        done, pc.calib_count = calib_iris(if_left=if_left, eye=eye, calib_count=pc.calib_count)
-        if done:
-            client.set_iris_fitering(pre_iris_data_left, pre_left_iris_threshold, if_left=if_left)
-            messagebox.showinfo('Calibration', 'Next, please select the image that circled your pupil correctly')
-            pc.current_calib_iris = False
-            pc.current_calib_pupil = True
+    done, pc.calib_count = calib_eye(client=client, if_left=if_left, eye=eye, calib_count=pc.calib_count)
+    if done:
+        if pc.calib_stage == 2:
+            client.set_pupil_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right)
+            messagebox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
+        else:
+            messagebox.showinfo('Calibration', 'Left eye done!')
+            pc.current_calib_pupil = False
 
-    elif pc.current_calib_pupil:
-        done, pc.calib_count = calib_eye(client, if_left=if_left, eye=eye, calib_count=pc.calib_count)
-        if done:
-            if pc.calib_stage == 2:
-                client.set_pupil_filtering(pre_left=pre_pupil_data_left, pre_right=pre_pupil_data_right,
-                                                           left_threshold=pre_left_pupil_threshold,
-                                                           right_threshold=pre_right_pupil_threshold)
-                messagebox.showinfo('Calibration', 'Right eye done!\nCalibration All Done.')
-            else:
-                messagebox.showinfo('Calibration', 'Left eye done!')
-                pc.current_calib_iris = True
-                pc.current_calib_pupil = False
-
-            pc.calib_stage += 1
+        pc.calib_stage += 1
 
     return pc, client
 
 
 def run_standalone(client):
     pc = Program_Control()
-
+    pc.calib_stage = 1 #skip the blink
     root = Tk()
     root.withdraw()
-
     messagebox.showinfo('Calibration', 'Please open your eyes and stay for 1 second.\nWhen you ready, press Any Key')
-
     cap = cv2.VideoCapture(0)
     client.start_time = time.time()
 
+    #initial configuration for blink
     blink_counter = 0
     MAX_EAR = 0
     EAR_UNCHANGED = 0
+    if_blink = False
 
     while True:
         frame, gray = get_frame(cap)
@@ -635,6 +494,9 @@ def run_standalone(client):
                 # then increment the total number of blinks
                 if blink_counter >= EYE_AR_CONSEC_FRAMES:
                     client.blink_count += 1
+                    if_blink = True
+                else:
+                    if_blink = False
                 # reset the eye frame counter
                 blink_counter = 0
 
@@ -643,14 +505,15 @@ def run_standalone(client):
             # calibration finish
             if pc.calib_stage == 3:
                 # detect pupil size
-                left_eye, right_eye = get_eyes(frame, shape)
+                if not if_blink:
+                    left_eye, right_eye = get_eyes(frame, shape)
 
-                # detect pupil size
-                left_result, right_result = process_both_eyes(client, left_eye, right_eye)
-                # print(left_size, right_size)
-                # update time
-                client.current_time = time.time()
-                client = update_data(client, left_result, right_result)
+                    # detect pupil size
+                    _, left_result, _ = procedure(left_eye, client.prev_left_pupil)
+                    _, right_result, _ = procedure(right_eye, client.prev_right_pupil)
+                    # update time
+                    client.current_time = time.time()
+                    client = update_data(client, left_result, right_result)
 
             show_text(client, frame, ear, time.time())
 
