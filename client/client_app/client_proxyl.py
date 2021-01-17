@@ -190,7 +190,7 @@ def filt_results(cnts):
     cnts = [cv2.minEnclosingCircle(i) for i in cnts]     #(x, y), r
     results = []
     for cnt in cnts:
-        if cnt[2] >= 20:
+        if cnt[-1] >= 20:
             continue
         else:
             results.append(cnt)
@@ -204,7 +204,7 @@ def filt_results(cnts):
 def procedure(eye_image, compare_pupil):
     gray = convert_gray(eye_image) # gray image
     (x, y), t = show_histogram(gray, 0) # get x, y and threshold from the gray image
-    if t is None: return None, None
+    if t is None: return gray, None, None
 
     blur = get_binary(gray, t) # get the binary image
     # circles = find_circle(blur) # circle detections
@@ -212,7 +212,7 @@ def procedure(eye_image, compare_pupil):
     cnts, _ = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     result = filt_results(cnts)
 
-    if result is None: return None, None
+    if result is None: return gray, None, None
     (x, y), r = result
     print('----[CNT RESULTS]', x, y, r)
 
@@ -385,9 +385,9 @@ def run(client=None):
                 if run == 'a':
                     if client.current_time - blink_t >= 10:
                         t = Task(time=client.current_time,
-                                 left_pupil=client.current_left_pupil_r, left_pupil_x=client.current_left_pupil_x,
+                                 left_pupil_r=client.current_left_pupil_r, left_pupil_x=client.current_left_pupil_x,
                                  left_pupil_y=client.current_left_pupil_y,
-                                 right_pupil=client.current_right_pupil_r, right_pupil_x=client.current_right_pupil_x,
+                                 right_pupil_r=client.current_right_pupil_r, right_pupil_x=client.current_right_pupil_x,
                                  right_pupil_y=client.current_right_pupil_y,
                                  blink_count=client.blink_count)
                         store_data(t)

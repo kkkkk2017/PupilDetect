@@ -1,9 +1,11 @@
-from tkinter import Frame, Button, Label, Tk
+from tkinter import Frame, Button, Label, Tk, Canvas
+import os
 import os.path as path
 import random
 import time
 import csv
-import os
+import cv2
+import imutils
 
 global width
 global height
@@ -12,22 +14,18 @@ data_file = path.join(path.dirname(__file__), 'data.txt')
 control_file = path.join(path.dirname(__file__), 'control.txt')
 # root = os.environ['HOMEPATH']
 # storing_path = path.join(path.dirname(__file__), 'CSV')
-storing_path = os.path.expanduser("~/Desktop/CSV")
+storing_path = path.expanduser("~/Desktop/CSV")
 error_file = path.join(storing_path, 'error_list.csv')
 
-tasks = ['0-back', '1-back', '2-back', '3-back']
+tasks = ['video', '1-back', '2-back', '3-back']
 
 prac_task = {
-    '0-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'H', 'P'],
     '1-back prac': ['C', 'C', 'A', 'B', 'A', 'H', 'I', 'I', 'H', 'P', 'H', 'A', 'A', 'B', 'E', 'G', 'A', 'C', 'B', 'B'],
     '2-back prac': ['C', 'A', 'C', 'B', 'A', 'B', 'I', 'I', 'H', 'P', 'H', 'B', 'A', 'B', 'E', 'G', 'A', 'G', 'B', 'B'],
     '3-back prac':  ['C', 'A', 'B', 'C', 'D', 'A', 'C', 'P', 'A', 'A', 'F', 'A', 'A', 'B', 'E', 'G', 'A', 'C', 'B', 'B'],
 }
 
 instructions = {
-    '0-back': '\n0-back Task: You will see a sequence of letters.'
-              '\nEach letter is shown for 2 seconds.'
-              '\nAnd you will need to read out loud each letter\n\n\n',
     '1-back': '1-back Task: You will see a sequence of letters.'
               '\nEach letter is shown for 2 seconds.'
               '\nYou need to decide if you saw the same letter 1 trials ago.'
@@ -73,8 +71,14 @@ class Application(Frame):
         self.errors = []
         self.input = 0
 
+        self.level_label = Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
+                                 text='Current Task: ' + self.level_to_string(), padx=30, bg='white')
+        self.level_label.pack({'side': 'left'})
+        self.NEXT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='NEXT TASK',
+                           fg='black', command=self.reset_task, bg='white')
+        self.NEXT.pack({"side": "left"})
+
         self.prepare_task() # only run 1 time
-        self.create_frame()
         self.createTask()
 
         self.top_frame.pack()
@@ -82,6 +86,35 @@ class Application(Frame):
         self.instru_frame.place(x=0, y=80)
         self.instru_frame.pack()
         self.pack()
+
+        self.vid = None
+
+    def play_video(self):
+        video_dir = path.join(path.dirname(__file__), 'tasks', 'relax_video_short.mp4')
+        self.vid = cv2.VideoCapture(video_dir)
+        self.canvas = Canvas(self.task_frame)
+        self.canvas.pack()
+
+        while (self.vid.isOpened()):
+            ok, frame = self.vid.read()
+            if ok == True:
+                frame = imutils.resize(frame, width=self.master.winfo_width(), height=self.winfo_height(),
+                                       inter=cv2.INTER_CUBIC)
+                cv2.imshow('video', frame)
+                if cv2.waitKey(25) & 0xFF == ord('q'):
+                    break
+            else:
+                break
+        self.finish_video()
+
+
+    def finish_video(self):
+        self.vid.release()
+        cv2.destroyAllWindows()
+        self.canvas.destroy()
+        self.video_btn.destroy()
+        self.label.config(text='End\n\nYou can press the\'nextTask\' button to go to the next task', fg='black')
+
 
     def check_answer(self, event):
         ans = event.char
@@ -128,6 +161,7 @@ class Application(Frame):
                 else:
                     self.handle_wrong()
 
+
     def handle_wrong(self):
         if self.if_prac:
             self.ans_label.config(fg='black', text='Your Answer is Wrong')
@@ -145,7 +179,7 @@ class Application(Frame):
         f.close()
 
     def level_to_string(self):
-        dict = {0: '0-back',
+        dict = {0: 'video',
                 1: '1-back',
                 2: '2-back',
                 3: '3-back'}
@@ -161,14 +195,11 @@ class Application(Frame):
         write_error(self.errors)
         self.master.destroy()
 
+
     def create_frame(self):
         self.timer_label = Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
                                  text='', padx=30, fg='red', bg='white')
         self.timer_label.pack({'side': 'left'})
-
-        self.level_label = Label(self.top_frame, font=('Lucida Grande', 13, 'bold'),
-                                 text='Current Task: ' + self.level_to_string(), padx=30, bg='white')
-        self.level_label.pack({'side': 'left'})
 
         self.PRAC = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='PRAC',
                             fg='blue', command=self.start_prac, bg='white')
@@ -177,10 +208,6 @@ class Application(Frame):
         self.START = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='START TASK',
                             fg='green', command=self.start_task, bg='white')
         self.START.pack({"side": "left"})
-
-        self.NEXT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='NEXT TASK',
-                           fg='black', command=self.reset_task, bg='white')
-        self.NEXT.pack({"side": "left"})
 
         self.REST = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='REST',
                            fg='pink', command=self.rest, bg='white')
@@ -213,12 +240,17 @@ class Application(Frame):
     def createTask(self):
         self.t = 0
         self.current_level = 0
-        self.read_tasks() # get the tasks
-        instruction = instructions.get(self.level_to_string())
-        self.label = Label(self.instru_frame, font=('calibri', 30), text=instruction, width=300, padx=50, pady=100, fg='black')
+        # self.read_tasks() # get the tasks
+        # instruction = instructions.get(self.level_to_string())
+        self.label = Label(self.instru_frame, font=('calibri', 30), text='', width=300, padx=50, pady=100, fg='black')
         self.label.config(background='white', justify='center')
         self.label.pack()
         self.instru_frame.place(x=0, y=200)
+
+        self.video_btn = Button(self.task_frame, pady=3, padx=30, font=('calibri', 15, 'bold'), text='Play Video',
+                                fg='black', command=self.play_video, bg='white')
+        self.video_btn.pack()
+        self.video_btn.place(x=400, y=100)
 
     # initial task, reset the label text
     def initial_tasks(self):
@@ -255,7 +287,13 @@ class Application(Frame):
             pass
         f.close()
 
+
     def reset_task(self):
+        if self.current_level == 0:
+            self.create_frame()
+            if self.video_btn:
+                self.video_btn.destroy()
+
         self.ans_label.config(text='')
         self.timer_label.config(text='')
         self.t = 0
@@ -324,75 +362,75 @@ class Application(Frame):
             self.current_letter = None
             self.back_2 = None
             self.back_3 = None
-
             # show main labels
             self.t = 0
 
 
     def start_task(self, interval=2000):
-        self.if_prac = False
-        #check the last letter
-        if self.input == 0:
-            #1 back task, not counting the first letter
-            if self.current_level == 1 and (self.t-2) > 1 and (self.t-2) <= len(self.current_task):
-                self.handle_wrong()
-            #2 back task, not counting the second letter
-            elif self.current_level == 2 and (self.t-2) > 2 and (self.t-2) <= len(self.current_task):
-                self.handle_wrong()
-            #3 back task, not counting the third letter
-            elif self.current_level == 3 and (self.t-2) > 3 and (self.t-2) <= len(self.current_task):
-                self.handle_wrong()
-        else:
-            self.input = 0
+        if self.current_level != 0:
+            self.if_prac = False
+            #check the last letter
+            if self.input == 0:
+                #1 back task, not counting the first letter
+                if self.current_level == 1 and (self.t-2) > 1 and (self.t-2) <= len(self.current_task):
+                    self.handle_wrong()
+                #2 back task, not counting the second letter
+                elif self.current_level == 2 and (self.t-2) > 2 and (self.t-2) <= len(self.current_task):
+                    self.handle_wrong()
+                #3 back task, not counting the third letter
+                elif self.current_level == 3 and (self.t-2) > 3 and (self.t-2) <= len(self.current_task):
+                    self.handle_wrong()
+            else:
+                self.input = 0
 
-        # t = 0 - 5
-        letters = self.current_task
+            # t = 0 - 5
+            letters = self.current_task
 
-        if self.t == 2:
-            self.label.config(fg='white')
-            self.task_frame.place(x=0, y=200)
+            if self.t == 2:
+                self.label.config(fg='white')
+                self.task_frame.place(x=0, y=200)
 
-        if self.t == 0:
-            self.task_frame.place(x=0, y=100)
-            self.task_labels[4].config(fg='white')
-            self.ans_label.config(text='')
-            self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Ready')
-            self.write_control('a')
+            if self.t == 0:
+                self.task_frame.place(x=0, y=100)
+                self.task_labels[4].config(fg='white')
+                self.ans_label.config(text='')
+                self.label.config(font=('Lucida Grande', 100, 'bold'), pady=250, fg='black', text='Ready')
+                self.write_control('a')
 
-            self.t += 1
-            self.label.after(interval, self.start_task)
+                self.t += 1
+                self.label.after(interval, self.start_task)
 
-        elif self.t == 1:
-            self.label.config(text='GO', fg='black')
-            self.t += 1
-            self.label.after(interval, self.start_task)
+            elif self.t == 1:
+                self.label.config(text='GO', fg='black')
+                self.t += 1
+                self.label.after(interval, self.start_task)
 
-        elif self.t - 2 < len(letters):
-            current = self.t - 2
-            self.show_label(current, letters[current])
-            self.t += 1
-            self.label.after(interval, self.start_task)
+            elif self.t - 2 < len(letters):
+                current = self.t - 2
+                self.show_label(current, letters[current])
+                self.t += 1
+                self.label.after(interval, self.start_task)
 
-        elif self.t - 2 == len(letters):
-            # hide task frame
-            self.task_frame.place(x=0, y=100)
-            # self.task_labels[self.t - 3].config(fg='white')
-            self.task_labels[9].config(fg='white')
-            self.label.config(text='End', fg='black')
-            self.t += 1
-            self.label.after(1000, self.start_task)
+            elif self.t - 2 == len(letters):
+                # hide task frame
+                self.task_frame.place(x=0, y=100)
+                # self.task_labels[self.t - 3].config(fg='white')
+                self.task_labels[9].config(fg='white')
+                self.label.config(text='End', fg='black')
+                self.t += 1
+                self.label.after(1000, self.start_task)
 
-        else:
-            self.label.config(text='Take a Break', fg='black')
-            self.output_csv()
+            else:
+                self.label.config(text='Take a Break', fg='black')
+                self.output_csv()
 
-            self.back_1 = None
-            self.current_letter = None
-            self.back_2 = None
-            self.back_3 = None
+                self.back_1 = None
+                self.current_letter = None
+                self.back_2 = None
+                self.back_3 = None
 
-            # show main labels
-            self.t = 0
+                # show main labels
+                self.t = 0
 
     def output_csv(self, rest=False):
         # stop attend data and output csv
