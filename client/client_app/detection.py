@@ -99,10 +99,10 @@ def show_text(client, frame, ear, time):
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1)
 
 
-#--------------------- main detection algorithm -------------------------- #
+# --------------------- main detection algorithm -------------------------- #
 def get_peak(half_ary, reverse=False):
     if len(half_ary) == 0:
-        print('ary is empty, [ERROR]')
+        print('input ary is empty, [ERROR FIND PEAKS]')
         return 0
 
     peak_value = max(half_ary)
@@ -154,10 +154,10 @@ def show_histogram(gray, step, area_x=None, area_y=None, area_r=None, compare_pu
     elif step == 1:
 
         if area_x is not None and area_y is not None and area_r is not None:
-            print(area_x, area_y, len(gradient_col_2), len(gradient_row_2))
+            # print(area_x, area_y, len(gradient_col_2), len(gradient_row_2))
             peaks_col = [get_peak(gradient_col_2[:area_x], reverse=True),  get_peak(gradient_col_2[area_x:])+area_x]
             peaks_row = [get_peak(gradient_row_2[:area_y], reverse=True),  get_peak(gradient_row_2[area_y:])+area_y]
-            print('peaks_col', peaks_col, 'peaks_row', peaks_row)
+            # print('peaks_col', peaks_col, 'peaks_row', peaks_row)
 
             col_r = abs(peaks_col[1] - peaks_col[0])
             row_r = abs(peaks_row[1] - peaks_row[0])
@@ -214,23 +214,23 @@ def procedure(eye_image, compare_pupil):
 
     if result is None: return gray, None, None
     (x, y), r = result
-    print('----[CNT RESULTS]', x, y, r)
+    # print('----[CNT RESULTS]', x, y, r)
 
     if_valid, adjust_r, (adjust_x, adjust_y) = show_histogram(blur, 1, int(x//1), int(y//1), r, compare_pupil)
 
     if not if_valid:
         if adjust_x is not None:
             if x == adjust_x:
-                print('*** adjutst x and contour x are the same, no need to adjust **')
+                # print('*** adjutst x and contour x are the same, no need to adjust **')
                 pass
             x = adjust_x
             y = np.mean((adjust_y, y))
             y = int(y)
         r = adjust_r
 
-        print('*[HIST ADJUST] adjust radius =', r, 'adjust x = ', x)
+        # print('*[HIST ADJUST] adjust radius =', r, 'adjust x = ', x)
 
-    print('-------- [FINAL RESULT]', x, y, r, '\n')
+    # print('-------- [FINAL RESULT]', x, y, r, '\n')
     result = ((x, y), r)
     return gray, result, t
 
@@ -253,7 +253,7 @@ def calib_eye(client, if_left, eye, calib_count):
     else:
         gray, pupil, _ = procedure(eye, client.prev_right_pupil)
 
-    print('detection result', pupil)
+    # print('detection result', pupil)
 
     if pupil is not None:
         (x,y), r = pupil
@@ -437,7 +437,7 @@ def eye_calibration_stage(frame, shape, pc, client):
 
 def run_standalone(client):
     pc = Program_Control()
-    pc.calib_stage = 1 #skip the blink
+    pc.calib_stage = 0 #skip the blink
     root = Tk()
     root.withdraw()
     messagebox.showinfo('Calibration', 'Please open your eyes and stay for 1 second.\nWhen you ready, press Any Key')

@@ -1,6 +1,6 @@
 import tkinter
 import taskProgram
-import client_proxyl
+import detection
 import multiprocessing as mp
 from multiprocessing import Process
 import os.path as path
@@ -19,7 +19,7 @@ def start_program():
 
     processes = []
 
-    server = Process(name='client', target=client_proxyl.run, args=(client, ))
+    server = Process(name='client', target=detection.run, args=(client,))
     task = Process(name='task', target=taskProgram.run, args=())
 
     server.start()
@@ -35,7 +35,7 @@ def terminate():
 
 def run_calib():
     global client
-    client = client_proxyl.run_standalone(client)
+    client = detection.run_standalone(client)
 
 def main():
     print('The current system is: ', platform)

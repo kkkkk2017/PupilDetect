@@ -90,7 +90,7 @@ class Application(Frame):
         self.vid = None
 
     def play_video(self):
-        video_dir = path.join(path.dirname(__file__), 'tasks', 'relax_video_short.mp4')
+        video_dir = path.join(path.dirname(__file__), 'tasks', 'relax_video.mp4')
         self.vid = cv2.VideoCapture(video_dir)
         self.canvas = Canvas(self.task_frame)
         self.canvas.pack()
