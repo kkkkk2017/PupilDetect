@@ -1,11 +1,11 @@
 Pupil Detection Program
 --
 ##Installation Guide
-##### Step 1, if you don't have miniconda installed, download miniconda for python2.7 version from this website. 
+##### Step 1, if you don't have miniconda installed, download miniconda for python3.7 version from this website. 
             https://docs.conda.io/en/latest/miniconda.html
 
-##### Step 2, go to your command-prompt and run. (Python version is restricted on python2.7).
-        conda create --name pupil_env python=2.7
+##### Step 2, go to your command-prompt and run. (Python version is restricted on python3.7).
+        conda create --name pupil_env python=3.7
         
 ##### Step 3, activate your conda environment with
         conda activate pupil_env
@@ -17,21 +17,21 @@ Pupil Detection Program
         For example, you saved in Downloads folder. C:/Downloads> pip install [filename].
 
 ##### Step 6, run the following command to install the package
-    pip install pupil-detection-2.0.1.tar.gz [or pupil-detection-2.0.2.tar.gz if you got the 2.0.2 version]  
+    pip install pupil-detection-6.0.0.tar.gz [or pupil-detection-6.0.0.tar.gz if you got the 6.0.0 version]  
     
 ##### Step 7, if the installation succeed, run 'papp' to run the program. 
    If not, check your environments and see if it contains the pupil-detection and all of the required packages(listed below). 
    If it does not contains, the installation might not succeed, repeat the previous steps.
    
    ###### The required packages are
-        python~=2.7
+        python~=3.7
         cmake~=3.18.2
-        numpy~=1.16.6
+        numpy~=1.19.2
         setuptools~=40.8.0
         imutils~=0.5.3
-        scipy~=1.2.1
+        scipy~=1.5.3
         dlib~=19.17
-        opencv-python~=3.2.0
+        opencv-python~=4.4.0
 
 
 ### Till now, the installation all done.
