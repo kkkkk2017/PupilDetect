@@ -17,7 +17,9 @@ class Client:
 
         self.prev_left_pupil = None
         self.prev_right_pupil = None
-
+        self.iris_r = None
+        self.left_approx_r = None
+        self.right_approx_r = None
 
     def reset_data(self):
         self.blink_count = 0

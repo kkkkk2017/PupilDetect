@@ -29,21 +29,18 @@ instructions = {
     '1-back': '1-back Task: You will see a sequence of letters.'
               '\nEach letter is shown for 2 seconds.'
               '\nYou need to decide if you saw the same letter 1 trials ago.'
-              '\n\n If you saw the same letter 1 trials ago, you press \'y\', otherwise, \'o\''
-              '\nFor example: A A ( press \'y\' because it is the same as last one) \nB (press \'o\' because it is not the same as last one)'
-              '\nYou will have only one chance for each letter',
+              '\n\n If you saw the same letter 1 trials ago, you press \'y\'.'
+              '\nFor example: A A ( press \'y\' because it is the same as last one)',
     '2-back': '2-back Task: You will see a sequence of letters.'
               '\nEach letter is shown for 2 seconds.'
               '\nYou need to decide if you saw the same letter 2 trials ago.'
-              '\n\n If you saw the same letter 2 trials ago, you press \'y\', otherwise, \'o\''
-              '\nFor example: A C A ( press \'y\' because it is the same as 2 trials ago) \nB (press \'o\' because it is not the same as 2 trials ago)'
-              '\nYou will have only one chance for each letter',
+              '\n\n If you saw the same letter 2 trials ago, you press \'y\'.'
+              '\nFor example: A C A ( press \'y\' because it is the same as 2 trials ago)',
     '3-back': '3-back Task: You will see a sequence of letters.'
               '\nEach letter is shown for 2 seconds.'
               '\nYou need to decide if you saw the same letter 3 trials ago.'
-              '\n\n If you saw the same letter 3 trials ago, you press \'y\', otherwise, \'o\''
-              '\nFor example: A P N A( press \'y\' because it is the same as 3 trials ago) \nB (press \'o\' because it is not the same as 3 trials ago)'
-              '\nYou will have only one chance for each letter',
+              '\n\n If you saw the same letter 3 trials ago, you press \'y\'.'
+              '\nFor example: A P N A( press \'y\' because it is the same as 3 trials ago)',
 }
 
 class Application(Frame):
@@ -94,6 +91,7 @@ class Application(Frame):
         self.vid = cv2.VideoCapture(video_dir)
         self.canvas = Canvas(self.task_frame)
         self.canvas.pack()
+        self.write_control('a')
 
         while (self.vid.isOpened()):
             ok, frame = self.vid.read()
@@ -111,6 +109,7 @@ class Application(Frame):
     def finish_video(self):
         self.vid.release()
         cv2.destroyAllWindows()
+        self.output_csv()
         self.canvas.destroy()
         self.video_btn.destroy()
         self.label.config(text='End\n\nYou can press the\'nextTask\' button to go to the next task', fg='black')
@@ -130,11 +129,10 @@ class Application(Frame):
                 return
 
             if self.input == 1:
-                if (self.back_1 == self.current_letter and ans == 'y') or \
-                    (self.back_1 != self.current_letter and ans == 'o'):
+                if (self.back_1 == self.current_letter and ans == 'y'):
                     if self.if_prac:
                         self.ans_label.config(fg='black', text='Your Answer is Correct')
-                else:
+                elif (self.back_1 != self.current_letter and ans == 'y'):
                     self.handle_wrong()
 
         elif self.current_level == 2:
@@ -142,11 +140,10 @@ class Application(Frame):
             if self.back_2 is None:
                 return
             if self.input == 1:
-                if (self.back_2 == self.current_letter and ans == 'y') or \
-                    (self.back_2 != self.current_letter and ans == 'o'):
+                if (self.back_2 == self.current_letter and ans == 'y'):
                     if self.if_prac:
                         self.ans_label.config(fg='black', text='Your Answer is Correct')
-                else:
+                elif (self.back_1 != self.current_letter and ans == 'y'):
                     self.handle_wrong()
 
         elif self.current_level == 3:
@@ -154,8 +151,7 @@ class Application(Frame):
             if self.back_3 is None:
                 return
             if self.input == 1:
-                if (self.back_3 == self.current_letter and ans == 'y') or \
-                    (self.back_3 != self.current_letter and ans == 'o'):
+                if (self.back_3 == self.current_letter and ans == 'y'):
                     if self.if_prac:
                         self.ans_label.config(fg='black', text='Your Answer is Correct')
                 else:
@@ -210,7 +206,7 @@ class Application(Frame):
         self.START.pack({"side": "left"})
 
         self.REST = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='REST',
-                           fg='pink', command=self.rest, bg='white')
+                           fg='purple', command=self.rest, bg='white')
         self.REST.pack({"side": "left"})
 
         self.QUIT = Button(self.top_frame, pady=3, padx=30, font = ('calibri', 13, 'bold'), text='QUIT',
@@ -451,7 +447,7 @@ class Application(Frame):
     def rest(self):
         self.write_control('a')
         self.label.config(text = ' ')
-        self.countdown(60)
+        self.countdown(30)
 
     def show_label(self, current, letter):
         label = current % 10 #[0-9]
