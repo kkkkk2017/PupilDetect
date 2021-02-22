@@ -6,6 +6,7 @@ class Client:
         self.current_time = 0  # the time when updating the data
         self.calib_blink = True
         self.control = 1
+        self.EYE_AR_THRESH = 0.21 # default threshold for indicate blink
 
         self.current_left_pupil_r = 0  # current pupil data
         self.current_right_pupil_r = 0
@@ -15,11 +16,11 @@ class Client:
         self.current_right_pupil_x = 0
         self.current_right_pupil_y = 0
 
-        self.prev_left_pupil = None
-        self.prev_right_pupil = None
         self.iris_r = None
-        self.left_approx_r = None
-        self.right_approx_r = None
+
+        self.approx_iris = ((165.5, 39.5), 40)
+        self.approx_left_pupil = ((100, 60.5), 20)
+        self.approx_right_pupil = ((100, 60.5), 20)
 
     def reset_data(self):
         self.blink_count = 0

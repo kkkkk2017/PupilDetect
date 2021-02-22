@@ -35,7 +35,7 @@ def terminate():
 
 def run_calib():
     global client
-    client = detection.run_standalone(client)
+    client = detection.run_calibration(client)
 
 def main():
     print('The current system is: ', platform)
