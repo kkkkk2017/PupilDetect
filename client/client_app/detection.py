@@ -117,7 +117,7 @@ def procedure(gray, compare_pupil, approx_iris,
 
     if t is None: return None, None, None
 
-    t -= 5
+    t -= 20
     blur = img_utility.get_binary(gray, t) # get the binary image
 
     cnts, _ = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -173,8 +173,11 @@ def calib_iris(gray):
     edge_1 = np.where(half_1 == min(half_1))[0]
     edge_2 = np.where(half_2 == min(half_2))[0] + x
     r = (edge_2 - edge_1) / 2
+
+    if r >= 90 or r <= 25: return None
     y, _ = gray.shape
     y /= 2
+
     result = (x, y), r[0]
 
     return result

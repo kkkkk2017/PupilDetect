@@ -1,13 +1,14 @@
 import cv2
 import time
 import os
+import numpy as np
 import img_utility
 
 approx_iris = (165.5, 39.5, 66.5)
 compare_pupil = (100, 60.5, 40)
 
-light_storing_path = os.path.expanduser('~/Desktop/test_result_images/light_images/')
-dark_storing_path = os.path.expanduser('~/Desktop/test_result_images/dark_images_4/')
+light_storing_path = os.path.expanduser('~/Desktop/light_images/')
+dark_storing_path = os.path.expanduser('~/Desktop/dark_images/')
 storing_path = dark_storing_path
 
 
@@ -19,11 +20,29 @@ def procedure(gray, storing_path, tme, side, compare_pupil, output_pic):
 
     if t is None: return None, None
 
+    print(iris, compare_pupil)
+    blur1 = img_utility.get_binary(gray, t, side, tme, output_pic, storing_path) # get the binary image
+    cnts, _ = cv2.findContours(blur1, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = [cv2.minEnclosingCircle(i) for i in cnts]    #(x, y), r
+    cnts = img_utility.select_closest(cnts, iris[0], iris[1], 0)
+    print('1', cnts)
+
+    blur2 = img_utility.get_binary(gray, t-10, side, tme, output_pic, storing_path) # get the binary image
+    cnts, _ = cv2.findContours(blur2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = [cv2.minEnclosingCircle(i) for i in cnts]    #(x, y), r
+    cnts = img_utility.select_closest(cnts, iris[0], iris[1], 0)
+    print('2', cnts)
+
     blur = img_utility.get_binary(gray, t-20, side, tme, output_pic, storing_path) # get the binary image
+
+    cv2.imshow('blur', np.hstack( (blur1, blur2, blur)))
 
     cnts, _ = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     cnts = [cv2.minEnclosingCircle(i) for i in cnts]    #(x, y), r
+
     result = img_utility.select_closest(cnts, iris[0], iris[1], 0)
+    print('3', result)
+
     if result is None: return None, None
     (x, y), r = result
     # print('----[CHT RESULTS]', x, y, r)
@@ -37,6 +56,7 @@ def procedure(gray, storing_path, tme, side, compare_pupil, output_pic):
             if output_pic:
 
                 gray = cv2.circle(gray, (int(x), int(y)), int(r), (255, 255, 255), 1)
+
                 gray = cv2.putText(gray, str(x) + ' ' + str(y) + ' r= ' + str(r), (5, int(y + 15)),
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, 25)
                 cv2.imwrite(storing_path, gray)
@@ -117,7 +137,7 @@ def image_process(rects, gray, frame, s, csv_path, compare_pupil, output_pic):
 def do_video(color, output_pic):
 
     csv_name = 'pupil_data_indoor_1.csv'
-    video_name = 'dark_video_4.mp4'
+    video_name = 'dark_video_sun.mp4'
 
     if color == 'l':
         csv_name = 'light_' + csv_name
@@ -147,7 +167,7 @@ def do_video(color, output_pic):
     print('[OPEN CAP]', cap.isOpened())
 
     s = time.time()
-    compare_pupil = (133, 32), 25
+    compare_pupil = (133, 32), 17 #25 light pupil
     while (cap.isOpened()):
         _, frame = cap.read()
         if frame is None:
@@ -160,8 +180,8 @@ def do_video(color, output_pic):
         image_process(rects, gray, frame, s, csv_path, compare_pupil, output_pic)
         # print('[Process Time] ', time.time() - s, '\n')
         # cv2.imshow('frame', frame)
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
     cap.release()
     cv2.destroyAllWindows()

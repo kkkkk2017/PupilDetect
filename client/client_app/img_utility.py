@@ -16,7 +16,7 @@ face_detector = dlib.get_frontal_face_detector()
 (rStart, rEnd) = imutils.face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
 UPPER_LIMIT = 50
-LOWER_LIMIT = 10 #pupil radius limit
+LOWER_LIMIT = 5 #pupil radius limit
 
 def get_shape(gray, rect):
     shape = predictor(gray, rect)
@@ -176,13 +176,12 @@ def remove_edge(pix_ary, ary):
 def get_points(ary):
     peaks, properties = find_peaks(ary, width=LOWER_LIMIT, prominence=1)
     prom = properties['prominences']
+
     if len(prom) == 0: return 0, 0
     # print('peaks', peaks)
     # print('prominence', prom, max(prom))
-    p = np.where(prom == max(prom))[0][0]
-    # print(properties['widths'], p, properties['widths'][p]/2)
-    r = properties['widths'][p]/2
-    # print(peaks[p], r)
+    p = np.where(prom == max(prom))[0][0]    #the highest one
+    r = properties['widths'][p]/2 #get the highest one's width
     return peaks[p], r
 
 # step 1: detect the quality of the blur image, adjust the most likely radius
@@ -242,56 +241,55 @@ def process(gray, compare_pupil=None, approx_r=24, iris_r=60,
     except:
         return None, None, (None, None)
 
-    # if output_pic:
-        # plot
-        # fig, axes = plt.subplots(3, 2)
-        # axes[0][0].plot([i for i in cols])
-        # axes[0][1].plot([i for i in rows])
-        # # axes[1][0].bar([i for i in range(len(col_pixels))], col_pixels)
-        # # axes[1][1].bar([i for i in range(len(row_pixels))], row_pixels)
-        #
-        # axes[2][0].plot(gradient_col_2)
-        # axes[2][1].plot(gradient_row_2)
-        #
-        # axes[0][0].set_xticks([i for i in range(0, len(cols), 30)])
-        # axes[0][1].set_xticks([i for i in range(0, len(rows), 10)])
-        # axes[2][0].set_xticks([i for i in range(0, len(cols), 30)])
-        # axes[2][1].set_xticks([i for i in range(0, len(rows), 10)])
-        #
-        # axes[0][0].set_ylabel('avg gray value')
-        # axes[1][0].set_ylabel('num. of non-0 pixels')
-        # axes[2][0].set_ylabel('2nd derivative')
-        # axes[2][0].set_xlabel('horizontal (columns) ')
-        # axes[2][1].set_xlabel('vertical (rows)')
-        #
-        # for a in range(3):
-        #     for b in range(2):
-        #         axes[a][b].grid()
+    if output_pic:
+        fig, axes = plt.subplots(3, 2)
+        axes[0][0].plot([i for i in cols])
+        axes[0][1].plot([i for i in rows])
+        # axes[1][0].bar([i for i in range(len(col_pixels))], col_pixels)
+        # axes[1][1].bar([i for i in range(len(row_pixels))], row_pixels)
+
+        axes[2][0].plot(gradient_col_2)
+        axes[2][1].plot(gradient_row_2)
+
+        axes[0][0].set_xticks([i for i in range(0, len(cols), 30)])
+        axes[0][1].set_xticks([i for i in range(0, len(rows), 10)])
+        axes[2][0].set_xticks([i for i in range(0, len(cols), 30)])
+        axes[2][1].set_xticks([i for i in range(0, len(rows), 10)])
+
+        axes[0][0].set_ylabel('avg gray value')
+        axes[1][0].set_ylabel('num. of non-0 pixels')
+        axes[2][0].set_ylabel('2nd derivative')
+        axes[2][0].set_xlabel('horizontal (columns) ')
+        axes[2][1].set_xlabel('vertical (rows)')
+
+        for a in range(3):
+            for b in range(2):
+                axes[a][b].grid()
 
     # middle_col = get_middle(col_pixels)
-    col_p, col_r = get_points(cols)
-    row_p, row_r = get_points(rows)
+    col_p, _ = get_points(cols)
+    row_p, _ = get_points(rows)
 
-    # middle_row = np.where(rows == max(rows))[0][0]
-    # middle_col = np.where(cols == max(cols))[0][0]
+    middle_row = np.where(rows == max(rows))[0][0]
+    middle_col = np.where(cols == max(cols))[0][0]
 
-    peaks_col = [get_peak(gradient_col_2[:col_p], if_back=True),
-                 get_peak(gradient_col_2[col_p:])+col_p ]
-    peaks_row = [get_peak(gradient_row_2[:row_p], if_back=True),
-                 get_peak(gradient_row_2[row_p:])+row_p ]
+    peaks_col = [get_peak(gradient_col_2[:middle_col], if_back=True),
+                 get_peak(gradient_col_2[middle_col:])+middle_col ]
+    peaks_row = [get_peak(gradient_row_2[:middle_row], if_back=True),
+                 get_peak(gradient_row_2[middle_row:])+middle_row ]
 
-    # if output_pic:
-    #     axes[0][0].scatter(peaks_col, cols[peaks_col], marker='x', color='red')
-    #     axes[0][1].scatter(peaks_row, rows[peaks_row], marker='x', color='red')
-    #     axes[2][0].axvline(x=col_p, color='red')
-    #     axes[2][1].axvline(x=row_p, color='red')
-    #
-    #     axes[2][0].scatter(peaks_col, gradient_col_2[peaks_col], marker='x', color='red')
-    #     axes[2][1].scatter(peaks_row, gradient_row_2[peaks_row], marker='x', color='red')
-    #
-    #     plt.tight_layout()
-    #     plt.savefig(storing_path + time + side + '_plot.png', dpi=500)
-    #     plt.close()
+    if output_pic:
+        axes[0][0].scatter(peaks_col, cols[peaks_col], marker='x', color='red')
+        axes[0][1].scatter(peaks_row, rows[peaks_row], marker='x', color='red')
+        axes[2][0].axvline(x=middle_col, color='red')
+        axes[2][1].axvline(x=middle_row, color='red')
+
+        axes[2][0].scatter(peaks_col, gradient_col_2[peaks_col], marker='x', color='red')
+        axes[2][1].scatter(peaks_row, gradient_row_2[peaks_row], marker='x', color='red')
+
+        plt.tight_layout()
+        plt.savefig(storing_path + time + side + '_plot.png', dpi=500)
+        plt.close()
 
     col_r = abs(peaks_col[1] - peaks_col[0])/2
     row_r = abs(peaks_row[1] - peaks_row[0])/2
