@@ -20,28 +20,13 @@ def procedure(gray, storing_path, tme, side, compare_pupil, output_pic):
 
     if t is None: return None, None
 
-    print(iris, compare_pupil)
-    blur1 = img_utility.get_binary(gray, t, side, tme, output_pic, storing_path) # get the binary image
-    cnts, _ = cv2.findContours(blur1, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = [cv2.minEnclosingCircle(i) for i in cnts]    #(x, y), r
-    cnts = img_utility.select_closest(cnts, iris[0], iris[1], 0)
-    print('1', cnts)
-
-    blur2 = img_utility.get_binary(gray, t-10, side, tme, output_pic, storing_path) # get the binary image
-    cnts, _ = cv2.findContours(blur2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = [cv2.minEnclosingCircle(i) for i in cnts]    #(x, y), r
-    cnts = img_utility.select_closest(cnts, iris[0], iris[1], 0)
-    print('2', cnts)
-
     blur = img_utility.get_binary(gray, t-20, side, tme, output_pic, storing_path) # get the binary image
-
-    cv2.imshow('blur', np.hstack( (blur1, blur2, blur)))
 
     cnts, _ = cv2.findContours(blur, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     cnts = [cv2.minEnclosingCircle(i) for i in cnts]    #(x, y), r
 
     result = img_utility.select_closest(cnts, iris[0], iris[1], 0)
-    print('3', result)
+
 
     if result is None: return None, None
     (x, y), r = result
@@ -190,4 +175,4 @@ def do_video(color, output_pic):
 if __name__ == '__main__':
     # do_image()
     # for i in range(1, 7):
-    do_video('l', True)
+    do_video('d', False)
