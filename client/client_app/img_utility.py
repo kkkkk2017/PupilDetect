@@ -15,8 +15,8 @@ face_detector = dlib.get_frontal_face_detector()
 (lStart, lEnd) = imutils.face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
 (rStart, rEnd) = imutils.face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
-UPPER_LIMIT = 50
-LOWER_LIMIT = 5 #pupil radius limit
+UPPER_LIMIT = 70
+LOWER_LIMIT = 10 #pupil radius limit
 
 def get_shape(gray, rect):
     shape = predictor(gray, rect)
@@ -288,7 +288,7 @@ def process(gray, compare_pupil=None, approx_r=24, iris_r=60,
         axes[2][1].scatter(peaks_row, gradient_row_2[peaks_row], marker='x', color='red')
 
         plt.tight_layout()
-        plt.savefig(storing_path + time + side + '_plot.png', dpi=500)
+        plt.savefig(storing_path + time + side + '_plot.png', dpi=100)
         plt.close()
 
     col_r = abs(peaks_col[1] - peaks_col[0])/2
@@ -404,6 +404,7 @@ def get_eye(frame, shape):
     left_eye = resize(left_eye)
     right_eye = extract_eye(frame, shape, rStart, rEnd)
     right_eye = resize(right_eye)
+
     return left_eye, right_eye
 
 
@@ -418,6 +419,7 @@ def convert_gray(gray):
 
 
 def get_binary(gray, t, side=None, time=None, output_pic=False, storing_path=None):
+
     _, thres = cv2.threshold(gray, t, 255, cv2.THRESH_BINARY_INV)
     open = cv2.morphologyEx(thres, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), 1)
     blur = cv2.medianBlur(open, 5)
@@ -492,11 +494,12 @@ def select_closest(cnts, approx_x, approx_y, approx_r):
     for c in cnts:
         (x, y), r = c
         if r <= LOWER_LIMIT or r >= UPPER_LIMIT: continue #+np.square(r-approx_r)
-        ary.append(( euclidean_dist( [x, y, r], [approx_x, approx_y, approx_r]), c ))
+        ary.append(( euclidean_dist( [x, y], [approx_x, approx_y]), c ))
 
     if len(ary) == 0: return None
 
     ary = sorted(ary, key=lambda x: x[0])
+    # print('all contours', ary)
     return ary[0][-1]
 
 # def clean_img(gray, ary):
