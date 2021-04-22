@@ -139,7 +139,7 @@ def preprocess(gray, side=None):
 
     x = np.where(cols == min(cols))
     x = int(x[0].mean())
-    y = np.where(rows == max(rows))
+    y = np.where(rows == min(rows))
     y = int(y[0].mean())
 
     peaks_col = [get_peak(cols[:x]), get_peak(cols[x:])]
@@ -233,10 +233,10 @@ def process(gray, compare_pupil=None, approx_r=24, iris_r=60,
     rows = rows/c #average
 
     try:
-        gradient_row = np.gradient(rows)
-        gradient_col = np.gradient(cols)
-        gradient_col_2 = np.gradient(gradient_col)
-        gradient_row_2 = np.gradient(gradient_row)
+        gradient_row_1 = np.gradient(rows)
+        gradient_col_1 = np.gradient(cols)
+        gradient_row_2 = np.gradient(gradient_row_1)
+        gradient_col_2 = np.gradient(gradient_col_1)
 
     except:
         return None, None, (None, None)
@@ -267,8 +267,8 @@ def process(gray, compare_pupil=None, approx_r=24, iris_r=60,
                 axes[a][b].grid()
 
     # middle_col = get_middle(col_pixels)
-    col_p, _ = get_points(cols)
-    row_p, _ = get_points(rows)
+    # col_p, _ = get_points(cols)
+    # row_p, _ = get_points(rows)
 
     middle_row = np.where(rows == max(rows))[0][0]
     middle_col = np.where(cols == max(cols))[0][0]
@@ -278,9 +278,13 @@ def process(gray, compare_pupil=None, approx_r=24, iris_r=60,
     peaks_row = [get_peak(gradient_row_2[:middle_row], if_back=True),
                  get_peak(gradient_row_2[middle_row:])+middle_row ]
 
+    assum_x = (np.where(gradient_col_2 == max(gradient_col_2))[0][0] + np.where(gradient_col_2 == min(gradient_col_2))[0][0])/2
+    assum_y = (peaks_row[1] + peaks_row[0])/2
+
     if output_pic:
         axes[0][0].scatter(peaks_col, cols[peaks_col], marker='x', color='red')
         axes[0][1].scatter(peaks_row, rows[peaks_row], marker='x', color='red')
+
         axes[2][0].axvline(x=middle_col, color='red')
         axes[2][1].axvline(x=middle_row, color='red')
 
@@ -298,22 +302,23 @@ def process(gray, compare_pupil=None, approx_r=24, iris_r=60,
     # print('valid col', col_valid, col_r)
     row_valid = valid_radius(row_r, iris_r)
     # print('valid row', row_valid, row_r)
-
     # print('diff', abs(col_r - row_r),  abs(col_r - row_r)//1 <= 10)
+    col_p = assum_x
+    row_p = assum_y
+
     if col_valid and row_valid:
         if abs(col_r - row_r)//1 <= 10 or abs(col_r - approx_r)//1 <= 5 or abs(row_r - approx_r)//1 <= 5:
-            True, None, (None, None) # no need to adjust the radius
+            return True, None, (None, None) # no need to adjust the radius
         else:
-            if abs(approx_r - row_r) <= abs(approx_r - col_r):
-                return False, row_r, (None, row_p)
-            else: return False, col_r, (col_p, None)
+            if abs(approx_r - row_r) <= abs(approx_r - col_r):  return False, row_r, (col_p, row_p)
+            else: return False, col_r, (col_p, row_p)
 
     elif not col_valid and not row_valid: return True, None, (None, None) # cannot adjust the radius
 
-    elif row_valid: return False, row_r, (None, row_p)
-    elif col_valid: return False, col_r, (col_p, None)
+    elif row_valid: return False, row_r, (col_p, row_p)
+    elif col_valid: return False, col_r, (col_p, row_p)
 
-    return False, col_r, (None, None)
+    return False, col_r, (col_p, row_p)
 
 def smooth_row(img, approx_r):
     row, col = img.shape
@@ -414,7 +419,7 @@ def convert_gray(gray):
     gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, (5, 5))
     gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, (5, 5))
     gray = cv2.GaussianBlur(gray, (7, 7), 3)
-    # gray = cv2.fastNlMeansDenoising(gray, gray, h=20)
+    gray = cv2.fastNlMeansDenoising(gray, gray, h=50)
     return gray
 
 

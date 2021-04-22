@@ -17,9 +17,9 @@ def procedure(gray, storing_path, tme, side, compare_pupil, output_pic):
 
     iris, t = img_utility.preprocess(gray, side) # get x, y and threshold from the gray image
     gray = img_utility.clean_img(gray, iris[0], iris[1], approx_iris[2])
-    # print('iris', iris)
-
     if t is None: return None, None
+
+    # cv2.imwrite(storing_path + str(time) + side + 'pupil.jpg', pupil_range)
 
     blur = img_utility.get_binary(gray, t-20, side, tme, output_pic, storing_path) # get the binary image
 
@@ -29,14 +29,13 @@ def procedure(gray, storing_path, tme, side, compare_pupil, output_pic):
     result = img_utility.select_closest(cnts, compare_pupil[0][0], compare_pupil[0][1], compare_pupil[1])
     if result is None: return None, None
     (x, y), r = result
-    print('----[CHT RESULTS]', x, y, r)
+    # print('----[CHT RESULTS]', x, y, r)
 
     if compare_pupil is not None:
         _, cr = compare_pupil
         # print('similar', abs(cr-r)//1)
-        if abs(cr-r)//1 <= 6:
-            # print('CONTOURS')
-            print('-------- [FINAL RESULT]', x, y, r, '\n')
+        if r >= (cr * 0.7) and r <= (cr*1.3):
+            # print('-------- CONTOURS [FINAL RESULT]', x, y, r, '\n')
             if output_pic:
                 gray = cv2.circle(gray, (int(x), int(y)), int(r), (255, 255, 255), 1)
                 gray = cv2.putText(gray, str(x) + ' ' + str(y) + ' r= ' + str(r), (5, int(y + 15)),
@@ -44,21 +43,23 @@ def procedure(gray, storing_path, tme, side, compare_pupil, output_pic):
                 cv2.imwrite(storing_path, gray)
             return (result, t)
 
-
     if_valid, adjust_r, (adjust_x, adjust_y) = img_utility.process(blur, iris_r=approx_iris[2], compare_pupil=None,
                                                                    time=tme, side=side, output_pic=output_pic, storing_path=storing_path)
     # print('if valid', if_valid)
     if not if_valid:
+        r = adjust_r
+
         # if adjust_x is not None:
         #     x = adjust_x
         # if adjust_y is not None:
         #     y = adjust_y
-        r = adjust_r
 
         # print('*[HIST ADJUST] adjust radius =', r, 'adjust x = ', x)
-    if r >= compare_pupil[1] * 1.4 or r <= compare_pupil[1] * 0.6: return None, None
+    if r < (compare_pupil[1] * 0.7) or r > (compare_pupil[1]*1.3): return None, None
 
-    print('-------- [FINAL RESULT]', x, y, r, '\n')
+    # if r >= compare_pupil[1] * 1.4 or r <= compare_pupil[1] * 0.6: return None, None
+
+    # print('-------- [FINAL RESULT]', x, y, r, '\n')
     if output_pic:
         gray = cv2.circle(gray, (int(x), int(y)), int(r), (255, 255, 255), 1)
         gray = cv2.putText(gray, str(x) + ' ' + str(y) + ' r= ' + str(r), (5, int(y + 15)),
@@ -79,6 +80,7 @@ def image_process(rects, gray, tme, csv_path, compare_pupil, output_pic):
 
         (left_pupil, t_left) = procedure(left_eye, tme=str(tme), side='left', compare_pupil=compare_pupil,
                                          output_pic=output_pic, storing_path=storing_path + str(tme)+'left_eye.jpg')
+
         (right_pupil, t_right) = procedure(right_eye, tme=str(tme), side='right', compare_pupil=compare_pupil,
                                            output_pic=output_pic, storing_path=storing_path + str(tme)+'right_eye.jpg')
         # print('left pupil', left_pupil)
@@ -125,7 +127,7 @@ def do_video(file_name, output_pic, output_file):
     global compare_pupil
     compare_pupil = ((133, 52),18)
 
-    if file_name.__contains__('light'):
+    if output_file.__contains__('light'):
         global storing_path
         storing_path = light_storing_path
         approx_iris = (165.5, 39.5, 68)
@@ -151,7 +153,7 @@ def do_video(file_name, output_pic, output_file):
     # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
 
-    print('[OPEN CAP]', cap.isOpened())
+    # print('[OPEN CAP]', cap.isOpened())
 
     s = time.time()
     while (cap.isOpened()):
@@ -177,10 +179,12 @@ def do_video(file_name, output_pic, output_file):
 if __name__ == '__main__':
     # do_image()
     # for i in range(1, 7):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('file_name', type=str)
-    parser.add_argument('output', type=bool)
-    parser.add_argument('output_file', type=str)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('file_name', type=str)
+    # parser.add_argument('output', type=bool)
+    # parser.add_argument('output_file', type=str)
+    # args = parser.parse_args()
     # args = vars(args)
-    do_video(args.file_name, args.output, args.output_file)
+    # do_video(args.file_name, args.output, args.output_file)
+    for i in ['1back', '2back', '3back', 'video_task']:
+        do_video(i, False, 'light_'+i)
