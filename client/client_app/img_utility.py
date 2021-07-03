@@ -401,17 +401,16 @@ def extract_eye(frame, shape, start, end):
     roi = convert_gray(roi)
     return roi
 
-
 def get_eye(frame, shape):
     # shape = predictor(gray, rect)
     # shape = imutils.face_utils.shape_to_np(shape)
     left_eye = extract_eye(frame, shape, lStart, lEnd)
     left_eye = resize(left_eye)
+
     right_eye = extract_eye(frame, shape, rStart, rEnd)
     right_eye = resize(right_eye)
 
     return left_eye, right_eye
-
 
 def convert_gray(gray):
     # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -419,7 +418,7 @@ def convert_gray(gray):
     gray = cv2.morphologyEx(gray, cv2.MORPH_OPEN, (5, 5))
     gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, (5, 5))
     gray = cv2.GaussianBlur(gray, (7, 7), 3)
-    gray = cv2.fastNlMeansDenoising(gray, gray, h=50)
+    # gray = cv2.fastNlMeansDenoising(gray, gray, h=30)
     return gray
 
 
