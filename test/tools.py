@@ -20,3 +20,5 @@ def get_threshold(gray, range_x=15, range_r=0):
         cols.append(np.mean(sum))
 
     return np.around(max(cols), decimals=0), np.around(min(cols), decimals=0)
+
+

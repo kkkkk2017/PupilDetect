@@ -3,23 +3,30 @@ from os import listdir, path
 from os.path import isfile, join
 import img_utility
 import numpy as np
+import argparse
 
-participant = 'light_eye'
-storing_path = path.expanduser('~/Desktop/test_eye_images/' + participant + '/')
 HSV = []
 HSV_H = []
 HSV_S = []
 GRAY = []
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('participant_name', type=str)
+    args = parser.parse_args()
+    args = vars(args)
+    participant = args['participant_name']
 
+    storing_path = path.expanduser('~/Desktop/test_eye_images/' + participant + '/')
+    print(storing_path)
     for d in ['HSV', 'GRAY', 'HSV_S', 'HSV_H']:
-        onlyfiles = [f for f in listdir(storing_path + d) if isfile(join(storing_path + d, f)) and (f.__contains__('edge') or f.__contains__('thres'))]
+        onlyfiles = [f for f in listdir(storing_path + d) if isfile(join(storing_path + d, f)) and not (f.__contains__('edge') or f.__contains__('thres'))]
         # print(join(storing_path + d, onlyfiles[0]))
-        # for f in onlyfiles:
-        #     image = cv2.imread(join(storing_path + d, f), 0)
-        #     edge = cv2.Canny(image, 60, 100)
-        #     cv2.imwrite(storing_path+d+'/edge_' + f, edge)
+        for f in onlyfiles:
+            image = cv2.imread(join(storing_path + d, f), 0)
+            edge = cv2.Canny(image, 60, 100)
+            cv2.imwrite(storing_path+d+'/edge_' + f, edge)
+
         exec(d + '=onlyfiles')
         print(d, len(eval(d)))
 

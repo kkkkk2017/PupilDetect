@@ -106,136 +106,95 @@ if __name__ == '__main__':
         hsv = cv2.imread(join(input_path, file), 0)
 
         # ------------------------ find eyeball --------------------------------- #
-        #applying hough circles on edge image
-        eyeball_circles = cv2.HoughCircles(edge, cv2.HOUGH_GRADIENT, 1, 50,
-                                  param1=60, param2=30, minRadius=50, maxRadius=0)
+        #applying hough circles on gray image
+        gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
+        gray = cv2.medianBlur(gray, 5)
+        eyeball_circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 50,
+                                             param1=60, param2=30, minRadius=50, maxRadius=0)
         if eyeball_circles is not None:
-            eyeball = [i for i in eyeball_circles[0] if abs(i[2] - avg_iris) <= 3 ]
+            eyeball = [i for i in eyeball_circles[0] if abs(i[2] - avg_iris) <= 3]
             if len(eyeball) > 0:
                 eyeball = max(eyeball, key=lambda x: x[2])
                 # avg_iris = np.around(np.average((avg_iris, eyeball[2])), decimals=1)
-        else:
-            gray = cv2.cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-            gray = cv2.medianBlur(gray, 5)
-            eyeball_circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 50,
-                                                 param1=60, param2=30, minRadius=50, maxRadius=0)
-            if eyeball_circles is not None:
-                eyeball = [i for i in eyeball_circles[0] if abs(i[2] - avg_iris) <= 3]
-                if len(eyeball) > 0:
-                    eyeball = max(eyeball, key=lambda x: x[2])
-                    # avg_iris = np.around(np.average((avg_iris, eyeball[2])), decimals=1)
 
         #draw circle on rgb
         if len(eyeball) > 0:
             iris_x, iris_y, iris_r = eyeball
 
+        #detect glint, use grayscale
+        max_t, min_t = tools.get_threshold(gray)
+        print('min t on grayscale:', min_t)
+        _, glint = cv2.threshold(gray, min_t, 255, cv2.THRESH_BINARY_INV)
+        glint = cv2.morphologyEx(glint, cv2.MORPH_CLOSE, (7, 7), 5)
+        cv2.imwrite(storing_path + 'glint_' + file, glint)
+
         # ------------------------------- find pupil --------------------------------------#
-        max_t, min_t = tools.get_threshold(hsv)
-        print('threshold =', max_t, "<-max|min->", min_t)
-
-        # global average pixel value of rgb pictures
-        avg = np.average(rgb)
-        avg = np.around(avg, decimals=0)
-        print('global avg =', avg)
-
-        if avg >= 99:
-            hsv = cv2.GaussianBlur(hsv, (7, 7), 3)
-            _, thresh = cv2.threshold(hsv, min_t-20, 255, cv2.THRESH_BINARY_INV)
-            thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (11, 11), 7)
-            # detect pupil
-            circles = cv2.HoughCircles(hsv, cv2.HOUGH_GRADIENT, 1, 20,
-                                       param1=50, param2=25, minRadius=0, maxRadius=0)
-
-        else:
-            _, thresh = cv2.threshold(hsv, max_t, 255, cv2.THRESH_BINARY)
-            thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (7, 7), 7)
-            # detect pupil
-            circles = cv2.HoughCircles(edge, cv2.HOUGH_GRADIENT, 1, 20,
-                                       param1=50, param2=30, minRadius=0, maxRadius=100)
+        # hsv = np.where(hsv <= 30, 255, hsv)
+        # hsv = cv2.morphologyEx(hsv, cv2.MORPH_CLOSE, (7, 7), 7)
+        # cv2.imwrite(storing_path + 'hsv_' + file, hsv)
 
         output = cv2.imread(join(input_path, file))
 
-        #detect contour
-        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours = [ cv2.minEnclosingCircle(i) for i in contours]
-        contours = [ [a, b, c] for (a, b), c in contours]
+        combine_glint = cv2.bitwise_and(hsv, hsv, mask=glint)
+        combine_glint = np.where(combine_glint == 0, 255, combine_glint) #0 is black, 255 is white
+        combine_glint = cv2.erode(combine_glint, (7, 7), 5)
+        combine_glint = cv2.erode(combine_glint, (7, 7), 5)
 
-        circle_result, contours_result = None, None
+        max_t, min_t = tools.get_threshold(combine_glint)
+        # # t = np.amin(combine_glint)
+        print('threshold min->', min_t, max_t)
+        # _, combine_glint = cv2.threshold(combine_glint,  min_t-20, 255, cv2.THRESH_BINARY)
+        # thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, (7, 7), 7)
 
-        if contours is not None:
-            contours = [ np.around(x) for x in contours]
-            contours_result = select_pupil_radius(contours, iris_x, iris_y, iris_r)
-            print('contours ' + index + "=", contours_result)
+        row, col = combine_glint[:2]
 
-        final_result = select_final(circle_result, contours_result, eyeball)
-        if final_result is not None:
-            print('\nfinal result => ', final_result, ' |ratio=', final_result[2]/iris_r,'| final average iris r = ', iris_r)
-            x, y, r = final_result
-            cv2.circle(output, (int(x), int(y)), int(r), (0, 0, 255), 2)
-            cv2.circle(output, (int(x), int(y)), 2, (0, 0, 255), 3)
+        pixels = combine_glint.sum(axis=1)
+        peak = np.where(pixels == min(pixels))[0][0]
+        pixels = combine_glint[peak]
+        gradient = np.gradient(pixels)
+        gradient_2 = np.gradient(gradient)
 
-        if len(eyeball) > 0:
-            x, y, r = np.around(eyeball)
-            print("eye ball " + index + "=", x, y, r)
-            cv2.circle(output, (x, y), int(r), (255, 0, 0), 2)
-            cv2.circle(output, (x, y), 2, (255, 0, 0), 3)
+        #plot
+        plt.plot(pixels, label='value')
+        plt.plot(gradient, label='1st')
+        plt.plot(gradient_2, label='2nd')
 
-        cv2.imwrite(storing_path + 'edge_' + file, edge)
-        cv2.imwrite(storing_path + 'thres_' + file, thresh)
+        plt.legend(loc='best')
+        plt.grid()
+        plt.savefig(storing_path + 'plt_' + file + '.png', dpi=100)
+        plt.close()
+
+        print('peak', peak)
+        cv2.line(combine_glint, (0, int(peak)), (int(170), int(peak)), (255, 0, 0), 2)
+        cv2.imwrite(storing_path + 'hsv_' + file, combine_glint)
+
+        # #detect contour
+        # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # contours = [ cv2.minEnclosingCircle(i) for i in contours]
+        # contours = [ [a, b, c] for (a, b), c in contours]
+        #
+        # circle_result, contours_result = None, None
+        #
+        # if contours is not None:
+        #     contours = [ np.around(x) for x in contours]
+        #     contours_result = select_pupil_radius(contours, iris_x, iris_y, iris_r)
+        #     print('contours ' + index + "=", contours_result)
+        #
+        # final_result = select_final(circle_result, contours_result, eyeball)
+        # if final_result is not None:
+        #     print('\nfinal result => ', final_result, ' |ratio=', final_result[2]/iris_r,'| iris r = ', iris_r)
+        #     x, y, r = final_result
+        #     cv2.circle(output, (int(x), int(y)), int(r), (0, 0, 255), 2)
+        #     cv2.circle(output, (int(x), int(y)), 2, (0, 0, 255), 3)
+        #
+        # if len(eyeball) > 0:
+        #     x, y, r = np.around(eyeball)
+        #     print("eye ball " + index + "=", x, y, r)
+        #     cv2.circle(output, (x, y), int(r), (255, 0, 0), 2)
+        #     cv2.circle(output, (x, y), 2, (255, 0, 0), 3)
+        #
+        # cv2.imwrite(storing_path + 'thres_' + file, thresh)
         cv2.imwrite(storing_path + file, output)
-
-        if final_result is not None:
-            row, col = hsv.shape[:2]
-            circle_image = np.full((row, col), 255, np.uint8)
-            circle_image = cv2.circle(circle_image, (int(x), int(y)), int(r), 0, thickness=-1)
-            masked_data = cv2.bitwise_not(hsv, mask=circle_image)
-            # cv2.imwrite(storing_path + 'mask_' + file, masked_data)
-            pixels = masked_data[int(y)]
-
-            gradient = np.gradient(pixels)
-            gradient_2 = np.gradient(gradient)
-
-            #plot
-            plt.plot(pixels, label='value')
-            plt.plot(gradient, label='1st')
-            plt.plot(gradient_2, label='2nd')
-
-            #find the extreme points of gradient_2
-            gradient_left = gradient[:int(x)] #left half side of gradient
-            gradient_right = gradient[int(x):] #right half side of gradient
-            gradient_2_left = gradient_2[:int(x)]
-            gradient_2_right = gradient_2[int(x):]
-
-            break_p_left = np.where(gradient_2_left == np.amin(gradient_2_left))[0][0]
-            print('break point left=', break_p_left, np.amin(gradient_2_left), gradient_left[break_p_left])
-
-            reverse_g_left = list(reversed(gradient_left))
-            break_p_1 = None
-
-            i = break_p_left-1
-            while i > 80:
-                a = gradient_left[i]
-                b = gradient_left[i-1] #previous < current
-                if a > b:
-                    break_p_1 = i
-                    print(break_p_1)
-                    break
-                i-=1
-
-            r = x-i
-            print('adjusted radius=', r, 'ratio =', r/iris_r)
-            masked_data = cv2.circle(masked_data, (int(x), int(y)), int(r), (0, 0, 255), thickness=2)
-            cv2.imwrite(storing_path + 'mask_' + file, masked_data)
-
-            plt.scatter(break_p_left, gradient[break_p_left], label='min')
-            plt.scatter(break_p_1, gradient[break_p_1], label='optimized')
-            plt.scatter(int(x), 0)
-            plt.xlim(80, 180)
-            plt.legend(loc='best')
-            plt.grid()
-            plt.savefig(storing_path + 'plt_' + file + '.png', dpi=100)
-            plt.close()
-            # print(index, gradient[80:180], gradient_2[80:180])
 
 
 

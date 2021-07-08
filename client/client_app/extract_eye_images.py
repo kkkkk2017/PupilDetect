@@ -6,14 +6,13 @@ import argparse
 import numpy as np
 import imutils
 
-participant = 'light_eye'
-storing_path = os.path.expanduser('~/Desktop/test_eye_images/' + participant + '/')
+# participant = 'light_eye'
 (lStart, lEnd) = imutils.face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
 (rStart, rEnd) = imutils.face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
 #histogram approx center + activate contours
 def image_process(rects, frame, count, output_file):
-
+    print('START')
     for rect in rects:
         shape = img_utility.get_shape(frame, rect)
 
@@ -104,17 +103,21 @@ def do_video(input_file, output_file):
 
     cap.release()
     cv2.destroyAllWindows()
+    print('DONE')
 
 
 if __name__ == '__main__':
     # do_image()
     # for i in range(1, 7):
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('file_name', type=str)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('participant_name', type=str)
     # parser.add_argument('output', type=bool)
     # parser.add_argument('output_file', type=str)
-    # args = parser.parse_args()
-    # args = vars(args)
+    args = parser.parse_args()
+    args = vars(args)
+    participant = args['participant_name']
+    storing_path = os.path.expanduser('~/Desktop/test_eye_images/' + participant + '/')
+
     # do_video(args.file_name, args.output, args.output_file)
     #'1back'
     do_video(participant, storing_path)
