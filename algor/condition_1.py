@@ -18,61 +18,6 @@ avg_iris = 61
 PIR_UPPER = 0.5
 PIR_LOWER = 0.15
 
-def select_pupil_radius(inputs, iris_x=None, iris_y=None, iris_r=avg_iris):
-    if inputs is None or len(inputs) <= 0: return None
-    min_d = (float('inf'), None)
-    if iris_x is not None and iris_y is not None:
-        for cont in inputs:
-            x, y, r = cont
-            ratio = np.around(r/iris_r, decimals=2)
-
-            if ratio <= PIR_LOWER or ratio >= PIR_UPPER: continue
-            if x <= 10 or y <= 10: continue
-            d = distance.euclidean((x, y), (iris_x, iris_y))
-            d = np.around(d)
-
-            if (d >= iris_r): continue
-            if (d < min_d[0]):
-                min_d = (d, (x, y, r))
-
-        if min_d[1] is None: return None
-        x, y, r = min_d[1]
-    else:
-        inputs = [x for x in inputs if np.around(x[2]/iris_r, decimals=2) <= PIR_UPPER
-                                                   and np.around(x[2]/iris_r, decimals=2) >= PIR_LOWER and x[0] >= 10 and x[1] >= 10]
-        if len(inputs) == 0: return None
-        x,y, r = max(inputs, key=lambda x: x[2])
-
-    return (x, y, r)
-
-
-def select_final(result_1, result_2, iris_result):
-    # result 1: result from hough circle, priority
-    # result 2: result from contours
-    if result_1 is None and result_2 is None: return None
-    print(result_1, result_2, iris_result)
-
-    if result_1 is not None and result_2 is not None and len(iris_result) > 0:
-        x1, y1, r1 = result_1
-        x2, y2, r2 = result_2
-        xi, yi, ri = iris_result
-        d1 = distance.euclidean((x1, y1), (xi, yi))
-        d2 = distance.euclidean((x2, y2), (xi, yi))
-        if d1 == d2:
-            return max((result_1, result_2), key=lambda x: x[2])
-        elif d1 < d2:
-            return result_1
-        else:
-            return result_2
-
-    elif result_1 is not None:
-        return result_1
-    elif result_2 is not None:
-        return result_2
-    else:
-        return max((result_1, result_2), key=lambda x: x[2])
-
-
 if __name__ == '__main__':
     eyeball = []
     iris_x, iris_y = None, None
@@ -164,15 +109,15 @@ if __name__ == '__main__':
 
         if circles is not None:
             circles = [ np.around(np.array(x).flatten()) for x in circles[0]]
-            circle_result = select_pupil_radius(circles, iris_x, iris_y, iris_r)
+            circle_result = tools.select_pupil_radius(circles, iris_x, iris_y, iris_r)
             print("circle " + index + "=", circle_result)
 
         if contours is not None:
             contours = [ np.around(x) for x in contours]
-            contours_result = select_pupil_radius(contours, iris_x, iris_y, iris_r)
+            contours_result = tools.select_pupil_radius(contours, iris_x, iris_y, iris_r)
             print('contours ' + index + "=", contours_result)
 
-        final_result = select_final(circle_result, contours_result, eyeball)
+        final_result = tools.select_final(circle_result, contours_result, eyeball)
         if final_result is None: continue
 
         print('\nfinal result => ', final_result, ' |ratio=', final_result[2]/iris_r,'| final average iris r = ', iris_r)

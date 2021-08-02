@@ -12,7 +12,6 @@ import imutils
 
 #histogram approx center + activate contours
 def image_process(rects, frame, count, output_file):
-    print('START')
     for rect in rects:
         shape = img_utility.get_shape(frame, rect)
 
@@ -79,6 +78,7 @@ def image_process(rects, frame, count, output_file):
 #       the distance between the peaks
 
 def do_video(input_file, output_file):
+    print('START')
 
     video_name = input_file+'.mp4'
 
