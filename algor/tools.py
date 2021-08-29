@@ -4,7 +4,7 @@ import cv2
 from scipy import signal
 
 PIR_UPPER = 0.55
-PIR_LOWER = 0.25
+PIR_LOWER = 0.2
 AVG_IRIS = 61
 BLACK_PIXEL_THRESHOLD = 50
 WHITE_PIXEL_THRESHOLD = 195
@@ -37,30 +37,44 @@ def get_preliminary_center(gray_img):
     return pre_x, pre_y
 
 
-def get_threshold(gray, range_x=15, range_r=0):
+def more_white_image(img): #more white pixel than black
+    unique, counts = np.unique(img, return_counts=True)
+    results = dict(zip(unique, counts))
+    if results[max(unique)] > results[min(unique)]:
+        return True
+    else: return False
+
+
+def get_threshold(gray):
     if gray is None: return 0, 0
 
-    start = np.around(range_x-range_r, decimals=0)
-    end = np.around(range_x+range_r, decimals=0)
+    # start = np.around(range_x-range_r, decimals=0)
+    # end = np.around(range_x+range_r, decimals=0)
     cols = []
     row, col = gray.shape
 
-    if range_x == 15:
-        end = col-15
+    # if range_x == 15:
+    #     end = col-15
     # print(start, ' -> ', end)
+    if more_white_image(gray):
+        ignore = 255
+    else:
+        ignore = 0 #if black more, then black information is not important
 
-    for a in np.arange(start, end):
-        a = int(a)
+    for a in range(col):
         sum = []
         for b in range(row):
-            if gray[b][a] != 0 or gray[b][a] != 255:
+            if gray[b][a] != ignore:
                 sum.append(gray[b][a])
 
         cols.append(np.mean(sum))
 
-    if len(cols) == 0: return 0, 0
+    if len(cols) == 0: return 0
 
-    return np.around(max(cols), decimals=0), np.around(min(cols), decimals=0)
+    if ignore == 255:
+        return np.around(np.nanmin(cols), decimals=0)-15
+    else:
+        return np.around(np.nanmax(cols), decimals=0)+15
 
 
 # hough circle and contour detect
@@ -74,8 +88,7 @@ def hg_n_cnt(binary_img, param1=20, param2=10, minRadius=0, maxRadius=100):
 
     if contour_circles is not None and binary_circles is not None:
         circle_results = np.append(contour_circles, binary_circles[0], axis=0)
-    else:
-        circle_results = contour_circles if contour_circles is not None else binary_circles[0]
+    # else:
         # circle_results = binary_circles
 
     return circle_results
@@ -85,6 +98,11 @@ def hg_n_cnt(binary_img, param1=20, param2=10, minRadius=0, maxRadius=100):
 def check_roi_pixels(x, y, r, eyeball, mode=0, recur=False, times=3):
     #mode 0 : black
     #mode 1 : white
+    if more_white_image(eyeball):
+        mode == 1
+    else:
+        mode == 0
+
     if times == 0:
         if mode == 0:
             return 255, (x, y, r)
@@ -225,6 +243,9 @@ def get_peak(half_ary, if_back=False):
     # peaks = signal.find_peaks(half_ary)[0]
     peak_value = max(half_ary)
     peak = np.where(half_ary == peak_value)[0]
+
+    if len(peak) == 0: return 0
+
     if if_back:
         return peak[-1]
     else:
@@ -266,7 +287,7 @@ def select_final(result_1, result_2, iris_result):
     # result 1: result from hough circle, priority
     # result 2: result from contours
     if result_1 is None and result_2 is None: return None
-    print(result_1, result_2, iris_result)
+    # print(result_1, result_2, iris_result)
 
     if result_1 is not None and result_2 is not None and len(iris_result) > 0:
         x1, y1, r1 = result_1
