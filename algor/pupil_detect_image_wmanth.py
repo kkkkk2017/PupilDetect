@@ -8,6 +8,7 @@ from scipy.spatial import distance
 import eyeball_detect as ed
 import tools
 import argparse
+from scipy.spatial import distance as dist
 
 RGB = []
 avg_iris = 61
@@ -249,14 +250,15 @@ def approach_expand(roi, result, calib_result):
 # masked_data = cv2.bitwise_not(v_channel, mask=circle_image)
 # cv2.imwrite(storing_path + 'ap2_masked_' +file, masked_data)
 
-#weighted manhatthan distance
+#weighted euclidean distance
 def calculate_weighted_distance(point_1, point_2):
-    x1, y1, r1 = point_1
-    x2, y2, r2 = point_2
-    #x has more range to move, so it is less reliable
-    #inversly, y has less range to move, so more weights
-    #so does r
-    return sum((abs(x1-x2)*0.2, abs(y1-y2)*0.45, abs(r1-r2)*0.35))
+    # x1, y1, r1 = point_1
+    # x2, y2, r2 = point_2
+    # #x has more range to move, so it is less reliable
+    # #inversly, y has less range to move, so more weights
+    # #so does r
+    # return sum((abs(x1-x2)*0.2, abs(y1-y2)*0.45, abs(r1-r2)*0.35))
+    return np.around(dist.euclidean(point_1, point_2, (0.2, 0.45, 0.35)), decimals=2)
 
 def input_calibration(dir, path):
     d = dir.split('_')
