@@ -16,6 +16,9 @@ RGB = []
 
 def select_remove_range(gradient_2, gradient, values, pre_x):
     #get the low peaks of second gradient
+    if pre_x >= len(gradient_2):
+        pre_x = 0
+
     candidates = signal.argrelextrema(gradient_2, np.less)[0]
 
     #get the global minima of the values
@@ -26,23 +29,30 @@ def select_remove_range(gradient_2, gradient, values, pre_x):
 
     grad_min = np.where(gradient == min(gradient))[0][0]
     grad_max = np.where(gradient == max(gradient))[0][0]
-    if grad_min not in candidates:
+
+    if grad_min not in candidates and grad_min < len(gradient_2):
         candidates = np.append(candidates, grad_min)
-    if grad_max not in candidates:
+    if grad_max not in candidates and grad_max < len(gradient_2):
         candidates = np.append(candidates, grad_max)
 
     #sort the array
     #array with low peaks of 2nd gradient and (global min of original values or pre x)
     candidates = np.sort(candidates)
-    # print(candidates)
     index = np.where(candidates == middle)[0][0]
-    minima_values = gradient_2[candidates]
+    try:
+        minima_values = gradient_2[candidates]
+    except:
+        print('ERROR!!')
+        print('candidates', candidates)
+        print('gradient_2', gradient_2)
+        print('pre x', pre_x)
+        return [candidates[0], candidates[2]], candidates
 
     global_min_g2_index = np.where(minima_values == min(minima_values))[0][0]
     global_min_g2 = candidates[global_min_g2_index]
 
     if len(candidates) == 3:
-        return [candidates[0], candidates[2]]
+        return [candidates[0], candidates[2]], candidates
 
     first = global_min_g2
     second = middle

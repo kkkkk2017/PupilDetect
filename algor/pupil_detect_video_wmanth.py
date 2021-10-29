@@ -10,12 +10,13 @@ import argparse
 import img_utility
 import time
 import imutils
+from imutils import face_utils
 from scipy.spatial import distance as dist
 
 RGB = []
 avg_iris = 61
-(lStart, lEnd) = imutils.face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
-(rStart, rEnd) = imutils.face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
+(lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
+(rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
 # select result by euclidean distance and count pixels of ROI
 # roi here is eyeball
@@ -27,21 +28,18 @@ def select_by_pd(results, iris_r, point_2):
                     for i in results]
     result_set = list(sorted(result_set, key=lambda x: x[0]))
 
+    valid_result = []
     for i in result_set:
-        if i[0] > 20:
-            try:
-                result_set.remove(i)
-            except:
-                print('ERROR!!')
-                print(i)
+        if i[0] < 20:
+            valid_result.append(i)
 
-    if len(result_set) == 0:
+    if len(valid_result) == 0:
         return None, None
 
-    log.write('\ndistance set, avg pixel = ' + str(result_set))
-    print('- sorted result set', result_set)
+    # log.write('\ndistance set, avg pixel = ' + str(result_set))
+    # print('- sorted result set', result_set)
 
-    first = np.array(result_set[0]).flatten()
+    first = np.array(valid_result[0]).flatten()
 
     final_result = first[1]
 
@@ -60,7 +58,7 @@ def approach_hough_cnt(roi, original_width, calib_result):
     height, width = roi.shape
     iris_r = min(height, width) / 2
 
-    log.write('\nROI size (w,h) ' + str(width) + ' ' + str(height))
+    # log.write('\nROI size (w,h) ' + str(width) + ' ' + str(height))
     # print('ROI size ' + str(width) + ' ' + str(height))
 
     pre_x, pre_y = tools.get_preliminary_center(roi)
@@ -70,19 +68,19 @@ def approach_hough_cnt(roi, original_width, calib_result):
     if np.around(dis_to_center, decimals=0) > 15:
         pre_x = int(width / 2)
         pre_y = int(height / 2)
-    log.write('\npreliminary center ' + str(pre_x) + ',' + str(pre_y))
+    # log.write('\npreliminary center ' + str(pre_x) + ',' + str(pre_y))
     # print('preliminary center', pre_x, pre_y)
 
     # cv2.imwrite(storing_path + 'ap1_roi_' + file, roi)
 
     if width < original_width / 3:
-        log.write('\n' + str(width))
+        # log.write('\n' + str(width))
         log.write('\n** ROI is too small')
-        print('\n** ROI is too small')
+        # print('\n** ROI is too small')
         return None, None
 
     t = tools.get_threshold(roi)
-    log.write('\nthreshold = ' + str(t))
+    # log.write('\nthreshold = ' + str(t))
     # print('threshold', t)
     # print('threshold = ' + str(max_t) + "<-max|min->" + str(min_t))
 
@@ -98,12 +96,12 @@ def approach_hough_cnt(roi, original_width, calib_result):
 
     if contour_circles is None:
         log.write('\nresult is None')
-        print('** Result is None')
+        # print('** Result is None')
         return None, None
 
     ##  select the results
     circle_results = np.around(contour_circles)
-    log.write('\ncircle reuslt: \n')
+    # log.write('\ncircle reuslt: \n')
     for i in circle_results:
         log.write(str(np.around(i[2] / iris_r, decimals=2)) + '\t')
 
@@ -203,7 +201,7 @@ def approach_expand(roi, result, calib_result):
         # print('pre x|y from global maxi', pre_x, pre_y)
 
     # print('pre result', pre_x, pre_y)
-    log.write('\npre coordinate = ' + str(pre_x) + ' ' + str(pre_y))
+    # log.write('\npre coordinate = ' + str(pre_x) + ' ' + str(pre_y))
 
     pre_x = int(pre_x)
     pre_y = int(pre_y)
@@ -226,10 +224,10 @@ def approach_expand(roi, result, calib_result):
 
     x, hor_r = expanding(select_row, pre_x, x_value, iris_r) # east, west
     # print('x, hor r', x, hor_r)
-    log.write('\nx, hor r: ' + str(x) + '|' + str(hor_r))
+    # log.write('\nx, hor r: ' + str(x) + '|' + str(hor_r))
     y, ver_r = expanding(select_col, pre_y, y_value, iris_r) #north, south
     # print('y, ver r', y, ver_r)
-    log.write('\ny, ver r: ' + str(y) + '|' + str(ver_r))
+    # log.write('\ny, ver r: ' + str(y) + '|' + str(ver_r))
 
     if hor_r is not None and ver_r is not None:
         r = np.mean( [hor_r, ver_r])
@@ -238,9 +236,9 @@ def approach_expand(roi, result, calib_result):
     elif ver_r is not None:
         r = ver_r
 
-    log.write('\n** final result = ')
-    log.write(str(x) + ',' + str(y) + ' | ratio= ' + str(
-        np.around(r / iris_r, decimals=2)) + ' iris r = ' + str(iris_r))
+    # log.write('\n** final result = ')
+    # log.write(str(x) + ',' + str(y) + ' | ratio= ' + str(
+    #     np.around(r / iris_r, decimals=2)) + ' iris r = ' + str(iris_r))
 
     # print('final result', x, y, r, np.around(r / iris_r, decimals=2), iris_r)
     sim = calculate_weighted_distance((x,y,r), calib_result)
@@ -264,7 +262,8 @@ def input_calibration(dir, path):
     left_x, left_y, left_r = [], [], []
     right_x, right_y, right_r = [], [], []
 
-    with open(os.path.join(path, d, 'calibration.txt'), 'r') as f:
+    # with open(os.path.join(path, d, 'calibration.txt'), 'r') as f:
+    with open('D:/PupilDilateProject/calibration.txt', 'r') as f:
         for line in f.readlines():
             values = line.split(',')
             if values[0] == 'left':
@@ -300,7 +299,7 @@ def select_channel(h, s, v):
 def process_single_image(rgb, log, calib_reuslt):
     original_width, original_height = rgb.shape[:2]
 
-    log.write('\n finding iris')
+    # log.write('\n finding iris')
     # print('[finding iris]')
     crop_area, roi_gray, roi_rgb = ed.extract_eyeball_ROI(rgb)
 
@@ -323,10 +322,10 @@ def process_single_image(rgb, log, calib_reuslt):
     sim1, result_1 = approach_hough_cnt(v_channel, original_width, current_calib)
     sim2, result_2 = approach_hough_cnt(v_channel_inv, original_width, current_calib)
 
-    log.write('\nresult 1 ' + str(result_1))
-    log.write(' | similarity = ' + str(sim1))
-    log.write('\nresult 2 ' + str(result_2))
-    log.write(' | similarity = ' + str(sim2))
+    # log.write('\nresult 1 ' + str(result_1))
+    # log.write(' | similarity = ' + str(sim1))
+    # log.write('\nresult 2 ' + str(result_2))
+    # log.write(' | similarity = ' + str(sim2))
 
     # select from first two approach first
     if result_1 is not None:
@@ -349,13 +348,13 @@ def process_single_image(rgb, log, calib_reuslt):
     # select with the third
     sim3, (x3, y3, r3) = approach_expand(v_channel_inv, (x, y), current_calib)
 
-    log.write('\nresult 3 ' + str(x3) + ',' + str(y3) + ',' + str(r3) + ' compare with result ' + str(x) + ',' + str(
-        y) + ',' + str(r))
+    # log.write('\nresult 3 ' + str(x3) + ',' + str(y3) + ',' + str(r3) + ' compare with result ' + str(x) + ',' + str(
+    #     y) + ',' + str(r))
 
     pixel_1, _ = tools.check_roi_pixels(x, y, r, roi_gray)
     pixel_3, _ = tools.check_roi_pixels(x3, y3, r3, roi_gray)
 
-    log.write('\nmean pixel values' + str(pixel_1) + ',' + str(pixel_3))
+    # log.write('\nmean pixel values' + str(pixel_1) + ',' + str(pixel_3))
     if pixel_1 > pixel_3 or (x == 0 and y == 0 and r == 0) and r3 is not None:
         x, y, r, sim = x3, y3, r3, sim3
 
@@ -363,14 +362,13 @@ def process_single_image(rgb, log, calib_reuslt):
 
     if r == 0: x, y, sim = 0, 0, 0
 
-    print('[FINAL RESULT]', x, y, r, 'with similarity = ', sim, '\n')
+    # print('[FINAL RESULT]', x, y, r, 'with similarity = ', sim, '\n')
     ratio = np.around(r / iris_r, decimals=2)
 
     if ratio >= 0.55 or ratio <= 0.3: return None
-    print(ratio)
 
-    log.write('\n[FINAL RESULT] ' + str(x) + ',' + str(y) + ',' + str(r)
-              + ' ' + str(ratio))
+    # log.write('\n[FINAL RESULT] ' + str(x) + ',' + str(y) + ',' + str(r)
+    #           + ' ' + str(ratio))
 
     if r == 0: return None
 
@@ -380,7 +378,7 @@ def process_single_image(rgb, log, calib_reuslt):
 def write_result(csv, step, ts, result, side, d2):
     x,y,r,sim,ratio = result
 
-    csv.write(step + ',')
+    # csv.write(step + ',')
     csv.write(ts + ',')
     csv.write(str(x) + ',')
     csv.write(str(y) + ',')
@@ -407,28 +405,45 @@ if __name__ == '__main__':
     reading_path = []
 
     if mode == 'eva': #evaluation
-        parent_dir = 'D:/PupilDilateProject/test_video'
+        # parent_dir = 'D:/PupilDilateProject/test_video'
+        # parent_dir = os.path.realpath(parent_dir)
+        # for subdir, dirs, files in os.walk(parent_dir):
+        #     for dir in dirs:
+        #         if not dir.__contains__('_'):
+        #             reading_path.append(dir)
+        parent_dir = 'D:/eve_dataset/eve_dataset'
         parent_dir = os.path.realpath(parent_dir)
-        for subdir, dirs, files in os.walk(parent_dir):
-            for dir in dirs:
-                if not dir.__contains__('_'):
-                    reading_path.append(dir)
+        for root, dirs, files in os.walk(parent_dir):
+            if dirs.__len__() == 0:
+                reading_path.append(root)
 
     elif mode == 'test':
         condition = 'test'  # only works when detected area is smaller than actual, not works on conditon 1
-        parent_dir = path.expanduser('~/Desktop/test_video/')
+        # parent_dir = path.expanduser('~/Desktop/test_video/')
+        parent_dir = 'D:/eve_dataset/eve_dataset'
         reading_path.append(parent_dir)
 
     for dir in reading_path:
         #dir = train01_photos
         print('dir in reading path', dir)
         if mode == 'eva':
-            storing_path = os.path.join(parent_dir, dir+'_video_result')
-            print('storing path', storing_path)
+            # storing_path = os.path.join(parent_dir, dir+'_video_result')
+            # print('storing path', storing_path)
+            #
+            # if os.path.isdir(storing_path): continue #avoid overwrite the previous results.
+            #
+            # os.mkdir(storing_path)
+            append = True
+            for f in listdir(dir):
+                if f.endswith('.csv'):
+                    append = False
+                    break
 
-            if os.path.isdir(storing_path): continue #avoid overwrite the previous results.
-
-            os.mkdir(storing_path)
+            if append:
+                storing_path = dir
+                print(storing_path)
+            else:
+                continue
 
             #input calibration data
             calib_left, calib_right = input_calibration(dir, parent_dir)
@@ -459,10 +474,10 @@ if __name__ == '__main__':
         print('calib_d2', calib_d2)
 
         second_dir = os.path.join(parent_dir, dir)
-        log = open(os.path.join(parent_dir, dir + "_video_log.txt"), "w")
-        csv = open(os.path.join(parent_dir, dir+"_video_result.csv"), 'w')
+        log = open(os.path.join(storing_path, "opencv_video_log.txt"), "w")
+        csv = open(os.path.join(storing_path, "opencv_video_result.csv"), 'w')
 
-        csv.write('step' + ',')
+        # csv.write('step' + ',')
         csv.write('ts' + ',')
         csv.write('x' + ',')
         csv.write('y' + ',')
@@ -477,14 +492,12 @@ if __name__ == '__main__':
 
         for file in listdir(second_dir): #all video in the folder
 
-            if not file.endswith('.mp4'): continue
+            if not file.endswith('webcam_c_face.mp4'): continue
 
             print('file in second dir', file)
 
             digs = file[:-4].split('_')
             step = digs[1]
-
-            continue
 
             log.write('\n\nstep ' + step + " --------------------")
             print('step ' + step + " --------------------")
@@ -494,71 +507,73 @@ if __name__ == '__main__':
             start_t = time.time()
 
             while (cap.isOpened()):
+                try:
+                    _, frame = cap.read()
+                    if frame is None:
+                        print('frame is None')
+                        break
+                    # time.sleep(0.05)
 
-                _, frame = cap.read()
-                if frame is None:
-                    print('frame is None')
-                    break
-                # time.sleep(0.05)
+                    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    rects = img_utility.face_detector(gray, 0)
+                    t = cap.get(cv2.CAP_PROP_POS_MSEC)
+                    t = str(t)
 
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                rects = img_utility.face_detector(gray, 0)
-                t = cap.get(cv2.CAP_PROP_POS_MSEC)
-                t = str(t)
+                    for rect in rects:
+                        shape = img_utility.get_shape(frame, rect)
 
-                for rect in rects:
-                    shape = img_utility.get_shape(frame, rect)
+                        ear = img_utility.handle_blink(shape)
+                        if ear < 0.21: continue
 
-                    ear = img_utility.handle_blink(shape)
-                    if ear < 0.21: continue
+                        (x, y, w, h) = cv2.boundingRect(np.array([shape[lStart:lEnd]]))
+                        left_eye = frame[y:(y + h), x:(x + w)]
+                        left_eye = imutils.resize(left_eye, width=100 * 3, height=75 * 3, inter=cv2.INTER_CUBIC)
 
-                    (x, y, w, h) = cv2.boundingRect(np.array([shape[lStart:lEnd]]))
-                    left_eye = frame[y:(y + h), x:(x + w)]
-                    left_eye = imutils.resize(left_eye, width=100 * 3, height=75 * 3, inter=cv2.INTER_CUBIC)
+                        (x, y, w, h) = cv2.boundingRect(np.array([shape[rStart:rEnd]]))
+                        right_eye = frame[y:(y + h), x:(x + w)]
+                        right_eye = imutils.resize(right_eye, width=100 * 3, height=75 * 3, inter=cv2.INTER_CUBIC)
 
-                    (x, y, w, h) = cv2.boundingRect(np.array([shape[rStart:rEnd]]))
-                    right_eye = frame[y:(y + h), x:(x + w)]
-                    right_eye = imutils.resize(right_eye, width=100 * 3, height=75 * 3, inter=cv2.INTER_CUBIC)
+                        left_result = process_single_image(left_eye, log, calib_left)
+                        right_result = process_single_image(right_eye, log, calib_right)
 
-                    left_result = process_single_image(left_eye, log, calib_left)
-                    right_result = process_single_image(right_eye, log, calib_right)
+                        d_eyes = -1
+                        if left_result is not None and right_result is not None:
+                            lx, ly = left_result[:2]
+                            rx, ry = right_result[:2]
+                            d_eyes = np.around(dist.euclidean((lx, ly), (rx,ry)), decimals=2)
+                            # print('two eyes d', d_eyes)
+                            # log.write('\ntwo eyes interval ' + str(d_eyes))
+                            # if abs(d_eyes - calib_d2) <= 20:
+                            #     if left_result[-1] < right_result[-2]:
+                            #         right_result = None
+                            #     else:
+                            #         left_result = None
 
-                    d_eyes = -1
-                    if left_result is not None and right_result is not None:
-                        lx, ly = left_result[:2]
-                        rx, ry = right_result[:2]
-                        d_eyes = np.around(dist.euclidean((lx, ly), (rx,ry)), decimals=2)
-                        print('two eyes d', d_eyes)
-                        log.write('\ntwo eyes interval ' + str(d_eyes))
-                        if abs(d_eyes - calib_d2) <= 20:
-                            if left_result[-1] < right_result[-2]:
-                                right_result = None
-                            else:
-                                left_result = None
+                        if left_result is not None:
+                            write_result(csv, step, t, left_result, 'L', d_eyes)
+                            # output = left_eye
+                            # x,y,r = left_result[:3]
+                            # output = cv2.circle(output, (int(x), int(y)), int(r), (0, 0, 255), thickness=2)
+                            # output = cv2.circle(output, (int(x), int(y)), 2, (0, 0, 255), thickness=2)
+                            # cv2.imwrite(os.path.join(storing_path, step+'_'+t+'_left.png'), output)
 
-                    if left_result is not None:
-                        write_result(csv, step, t, left_result, 'L', d_eyes)
-                        output = left_eye
-                        x,y,r = left_result[:3]
-                        output = cv2.circle(output, (int(x), int(y)), int(r), (0, 0, 255), thickness=2)
-                        output = cv2.circle(output, (int(x), int(y)), 2, (0, 0, 255), thickness=2)
-                        cv2.imwrite(os.path.join(storing_path, step+'_'+t+'_left.png'), output)
+                        if right_result is not None:
+                            write_result(csv, step, t, right_result, 'R', d_eyes)
+                            # output = right_eye
+                            # x,y,r = right_result[:3]
+                            # output = cv2.circle(output, (int(x), int(y)), int(r), (0, 0, 255), thickness=2)
+                            # output = cv2.circle(output, (int(x), int(y)), 2, (0, 0, 255), thickness=2)
+                            # cv2.imwrite(os.path.join(storing_path, step+'_'+t+'_right.png'), output)
 
-                    if right_result is not None:
-                        write_result(csv, step, t, right_result, 'R', d_eyes)
-                        output = right_eye
-                        x,y,r = right_result[:3]
-                        output = cv2.circle(output, (int(x), int(y)), int(r), (0, 0, 255), thickness=2)
-                        output = cv2.circle(output, (int(x), int(y)), 2, (0, 0, 255), thickness=2)
-                        cv2.imwrite(os.path.join(storing_path, step+'_'+t+'_right.png'), output)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                except:
+                    continue
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-
-            cap.release()
-            cv2.destroyAllWindows()
-            log.write('\n[FINISH] Process time = ' + str(time.time() - start_t))
-            print('[FINISH] Process time = ', time.time() - start_t)
+                cap.release()
+                cv2.destroyAllWindows()
+                log.write('\n[FINISH] Process time = ' + str(time.time() - start_t))
+                print('[FINISH] Process time = ', time.time() - start_t)
 
 
         #
